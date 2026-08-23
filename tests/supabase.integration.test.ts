@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { toSyntheticEmail } from "../lib/auth/synthetic-email";
+import { normalizeLoginId } from "../lib/auth/login-id";
 
 const requiredEnvironment = [
   "TEST_SUPABASE_URL",
@@ -32,9 +32,14 @@ function newClient(key: string): SupabaseClient {
   });
 }
 
+function syntheticEmailForTest(loginId: string): string {
+  const domain = required("AUTH_EMAIL_DOMAIN").trim().toLowerCase();
+  return `${normalizeLoginId(loginId).toLowerCase()}@${domain}`;
+}
+
 async function signIn(loginId: string, password: string) {
   const client = newClient(required("TEST_SUPABASE_PUBLISHABLE_KEY"));
-  const email = toSyntheticEmail(loginId, required("AUTH_EMAIL_DOMAIN"));
+  const email = syntheticEmailForTest(loginId);
   const { data, error } = await client.auth.signInWithPassword({ email, password });
   assert.equal(error, null);
   assert.ok(data.user);
@@ -65,7 +70,7 @@ test(
 
     const invalidClient = newClient(publishableKey);
     const invalidLogin = await invalidClient.auth.signInWithPassword({
-      email: toSyntheticEmail(required("TEST_STUDENT_ONE_LOGIN_ID"), required("AUTH_EMAIL_DOMAIN")),
+      email: syntheticEmailForTest(required("TEST_STUDENT_ONE_LOGIN_ID")),
       password: "deliberately-wrong-integration-test-password",
     });
     assert.ok(invalidLogin.error, "Invalid passwords must be rejected by Supabase Auth.");

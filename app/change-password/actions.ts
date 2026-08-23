@@ -1,11 +1,13 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { hasCapability } from "@/lib/auth/permissions";
 import { requireCurrentPerson } from "@/lib/auth/require-person";
 import { createClient } from "@/lib/supabase/server";
 
 export async function changePasswordAction(formData: FormData) {
-  await requireCurrentPerson({ allowPasswordChangeRequired: true });
+  const person = await requireCurrentPerson({ allowPasswordChangeRequired: true });
+  if (!hasCapability(person.role, "change_own_password")) redirect("/forbidden");
 
   const currentPassword = String(formData.get("current_password") ?? "");
   const newPassword = String(formData.get("new_password") ?? "");

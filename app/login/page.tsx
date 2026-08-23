@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentPerson } from "@/lib/auth/current-person";
+import { shouldRequirePasswordChange } from "@/lib/auth/password-policy";
 import { loginAction } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +17,7 @@ const errorMessages: Record<string, string> = {
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const person = await getCurrentPerson();
-  if (person) redirect(person.mustChangePassword ? "/change-password" : "/dashboard");
+  if (person) redirect(shouldRequirePasswordChange(person) ? "/change-password" : "/dashboard");
 
   const { error } = await searchParams;
   const errorMessage = error ? errorMessages[error] : null;

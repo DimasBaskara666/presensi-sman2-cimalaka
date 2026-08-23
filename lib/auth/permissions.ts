@@ -3,13 +3,23 @@ import type { AppRole } from "./types";
 export type Capability =
   | "access_admin"
   | "access_teacher_operations"
+  | "change_own_password"
   | "read_all_attendance"
   | "read_own_attendance";
 
 const PERMISSIONS: Record<AppRole, ReadonlySet<Capability>> = {
-  admin: new Set(["access_admin", "access_teacher_operations", "read_all_attendance"]),
-  teacher: new Set(["access_teacher_operations", "read_all_attendance"]),
-  student: new Set(["read_own_attendance"]),
+  admin: new Set([
+    "access_admin",
+    "access_teacher_operations",
+    "change_own_password",
+    "read_all_attendance",
+  ]),
+  teacher: new Set([
+    "access_teacher_operations",
+    "change_own_password",
+    "read_all_attendance",
+  ]),
+  student: new Set(["change_own_password", "read_own_attendance"]),
 };
 
 export function hasCapability(role: AppRole, capability: Capability): boolean {

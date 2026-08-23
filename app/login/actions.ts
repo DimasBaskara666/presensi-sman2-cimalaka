@@ -2,8 +2,10 @@
 
 import { redirect } from "next/navigation";
 import { authenticateWithLoginId } from "@/lib/auth/login";
+import { shouldRequirePasswordChange } from "@/lib/auth/password-policy";
 import { findPersonByAuthUserId } from "@/lib/auth/people";
 import { getAuthEmailDomain } from "@/lib/auth/server-config";
+import { toSyntheticEmail } from "@/lib/auth/synthetic-email";
 import { createClient } from "@/lib/supabase/server";
 
 export async function loginAction(formData: FormData) {
@@ -13,7 +15,9 @@ export async function loginAction(formData: FormData) {
   let result;
   try {
     const supabase = await createClient();
-    result = await authenticateWithLoginId(loginId, password, getAuthEmailDomain(), {
+    result = await authenticateWithLoginId(loginId, password, {
+      resolveEmail: (submittedLoginId) =>
+        toSyntheticEmail(submittedLoginId, getAuthEmailDomain()),
       async signIn(email, suppliedPassword) {
         const { data, error } = await supabase.auth.signInWithPassword({
           email,
@@ -31,5 +35,5 @@ export async function loginAction(formData: FormData) {
   }
 
   if (result.status === "invalid") redirect("/login?error=invalid");
-  redirect(result.person.mustChangePassword ? "/change-password" : "/dashboard");
+  redirect(shouldRequirePasswordChange(result.person) ? "/change-password" : "/dashboard");
 }

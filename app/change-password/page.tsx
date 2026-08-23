@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { shouldRequirePasswordChange } from "@/lib/auth/password-policy";
 import { requireCurrentPerson } from "@/lib/auth/require-person";
 import { logoutAction } from "@/app/logout-action";
 import { changePasswordAction } from "./actions";
@@ -51,7 +52,9 @@ export default async function ChangePasswordPage({ searchParams }: ChangePasswor
         </form>
 
         <div style={{ display: "flex", gap: "0.75rem", marginTop: "1rem" }}>
-          {!person.mustChangePassword ? <Link className="button button-secondary" href="/dashboard">Kembali</Link> : null}
+          {!shouldRequirePasswordChange(person) ? (
+            <Link className="button button-secondary" href="/dashboard">Kembali</Link>
+          ) : null}
           <form action={logoutAction}><button className="button button-quiet" type="submit">Keluar</button></form>
         </div>
       </section>

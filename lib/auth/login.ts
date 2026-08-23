@@ -1,7 +1,7 @@
 import type { CurrentPerson } from "./types";
-import { toSyntheticEmail } from "./synthetic-email";
 
 export type LoginDependencies = {
+  resolveEmail: (loginId: string) => string;
   signIn: (email: string, password: string) => Promise<string | null>;
   findPerson: (authUserId: string) => Promise<CurrentPerson | null>;
   signOut: () => Promise<void>;
@@ -14,14 +14,13 @@ export type LoginResult =
 export async function authenticateWithLoginId(
   loginId: string,
   password: string,
-  domain: string,
   dependencies: LoginDependencies,
 ): Promise<LoginResult> {
   if (!password) return { status: "invalid" };
 
   let email: string;
   try {
-    email = toSyntheticEmail(loginId, domain);
+    email = dependencies.resolveEmail(loginId);
   } catch {
     return { status: "invalid" };
   }
