@@ -134,6 +134,32 @@ test("an unlinked or inactive Auth user is signed out", async () => {
   assert.equal(signedOut, true);
 });
 
+test("an inactive linked Teacher is rejected and signed out", async () => {
+  let signedOut = false;
+  const inactiveTeacher: CurrentPerson = {
+    ...student,
+    authUserId: "auth-teacher-1",
+    loginId: "G001",
+    role: "teacher",
+    isActive: false,
+  };
+  const result = await authenticateWithLoginId("G001", "correct", {
+    resolveEmail: testSyntheticEmail,
+    async signIn() {
+      return inactiveTeacher.authUserId;
+    },
+    async findPerson() {
+      return inactiveTeacher;
+    },
+    async signOut() {
+      signedOut = true;
+    },
+  });
+
+  assert.deepEqual(result, { status: "invalid" });
+  assert.equal(signedOut, true);
+});
+
 test("role permissions deny anonymous and cross-student attendance access", () => {
   assert.equal(canReadAttendanceRecord(null, student.id), false);
   assert.equal(
@@ -234,6 +260,90 @@ test("Auth secrets and synthetic-email configuration cannot enter Client Compone
   assert.match(serverConfigSource, /process\.env\.AUTH_EMAIL_DOMAIN/);
 });
 
+test("development Admin provisioning validates identity and prevents duplicate states", async () => {
+  const source = await readFile(
+    new URL("../lib/auth/provision-development-admin.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(source, /^import "server-only";/);
+  assert.match(source, /const loginId = normalizeLoginId\(input\.loginId\);/);
+  assert.match(source, /const fullName = input\.fullName\.trim\(\);/);
+  assert.match(source, /if \(!input\.password\)/);
+  assert.match(source, /\.eq\("role", "admin"\)/);
+  assert.match(source, /existingAdmins\.length !== 1/);
+  assert.match(source, /\.eq\("login_id", loginId\)/);
+  assert.match(source, /findAuthUserByEmail\(admin, syntheticEmail\)/);
+  assert.match(source, /"admin_already_exists"/);
+  assert.match(source, /"login_id_in_use"/);
+  assert.match(source, /"auth_identity_exists"/);
+});
+
+test("development Admin provisioning confirms Auth, links people, and rolls back failure", async () => {
+  const source = await readFile(
+    new URL("../lib/auth/provision-development-admin.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(source, /admin\.auth\.admin\.createUser\(\{/);
+  assert.match(source, /email_confirm: true/);
+  assert.match(source, /auth_user_id: createdAuth\.user\.id/);
+  assert.match(source, /role: "admin"/);
+  assert.match(source, /must_change_password: false/);
+  assert.match(source, /is_active: true/);
+  assert.match(source, /admin\.auth\.admin\.deleteUser\(createdAuth\.user\.id\)/);
+  assert.doesNotMatch(source, /console\./);
+  assert.doesNotMatch(source, /return \{[^}]*syntheticEmail/);
+});
+
+test("Teacher creation is server-only, duplicate-safe, linked, and rollback-safe", async () => {
+  const source = await readFile(
+    new URL("../lib/auth/teacher-management.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(source, /^import "server-only";/);
+  assert.match(source, /const loginId = normalizeLoginId\(input\.loginId\);/);
+  assert.match(source, /\.eq\("login_id", loginId\)/);
+  assert.match(source, /findAuthUserByEmail\(admin, syntheticEmail\)/);
+  assert.match(source, /admin\.auth\.admin\.createUser\(\{/);
+  assert.match(source, /email_confirm: true/);
+  assert.match(source, /auth_user_id: createdAuth\.user\.id/);
+  assert.match(source, /role: "teacher"/);
+  assert.match(source, /must_change_password: false/);
+  assert.match(source, /is_active: true/);
+  assert.match(source, /admin\.auth\.admin\.deleteUser\(createdAuth\.user\.id\)/);
+  assert.doesNotMatch(source, /console\./);
+});
+
+test("Teacher status and password reset operations target Teacher accounts only", async () => {
+  const source = await readFile(
+    new URL("../lib/auth/teacher-management.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(source, /\.update\(\{ is_active: isActive \}\)/);
+  assert.match(source, /\.eq\("role", "teacher"\)/);
+  assert.match(source, /admin\.auth\.admin\.updateUserById\(teacher\.auth_user_id, \{/);
+  assert.doesNotMatch(source, /must_change_password: true/);
+});
+
+test("every Teacher management action requires an authenticated Admin", async () => {
+  const source = await readFile(
+    new URL("../app/(protected)/admin/teachers/actions.ts", import.meta.url),
+    "utf8",
+  );
+  const adminGuards = source.match(/requireCurrentPerson\(\{ allowedRoles: \["admin"\] \}\)/g);
+  assert.equal(adminGuards?.length, 3);
+  assert.match(source, /^"use server";/);
+  assert.doesNotMatch(source, /signUp\(|resetPasswordForEmail/);
+});
+
+test("Teacher management UI does not display internal Auth identifiers", async () => {
+  const source = await readFile(
+    new URL("../app/(protected)/admin/teachers/page.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.doesNotMatch(source, /auth_user_id|syntheticEmail|AUTH_EMAIL_DOMAIN|SUPABASE_SERVICE_ROLE_KEY/);
+  assert.match(source, /type="password"/);
+});
+
 test("activation code digest is server-verifiable and case-normalized", () => {
   const digest = digestActivationCode(" abcd-1234 ", "test-only-pepper");
   assert.equal(digest.length, 64);
@@ -301,4 +411,28 @@ test("migration contains four RLS-protected application tables", async () => {
   assert.match(sql, /attendance_daily_student_date_unique unique \(student_id, attendance_date\)/);
   assert.match(sql, /create policy attendance_settings_update_admin/);
   assert.doesNotMatch(sql, /grant (insert|delete) on public\.attendance_daily to authenticated/);
+});
+
+test("development provisioning migration grants only narrow people access", async () => {
+  const migrationUrl = new URL(
+    "../supabase/migrations/20260824000000_service_role_people_provisioning.sql",
+    import.meta.url,
+  );
+  const sql = await readFile(migrationUrl, "utf8");
+
+  assert.match(sql, /grant select, insert on table public\.people to service_role;/);
+  assert.doesNotMatch(sql, /\b(anon|authenticated)\b/);
+  assert.doesNotMatch(sql, /disable row level security|grant all/i);
+});
+
+test("Teacher status migration grants only service-role is_active updates", async () => {
+  const migrationUrl = new URL(
+    "../supabase/migrations/20260824010000_service_role_teacher_status.sql",
+    import.meta.url,
+  );
+  const sql = await readFile(migrationUrl, "utf8");
+
+  assert.match(sql, /grant update \(is_active\) on table public\.people to service_role;/);
+  assert.doesNotMatch(sql, /\b(anon|authenticated)\b/);
+  assert.doesNotMatch(sql, /disable row level security|grant all|\bdelete\b/i);
 });

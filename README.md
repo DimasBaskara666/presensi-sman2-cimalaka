@@ -41,17 +41,32 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=YOUR_PUBLISHABLE_KEY
 SUPABASE_SERVICE_ROLE_KEY=YOUR_SERVER_ONLY_SERVICE_ROLE_KEY
 AUTH_EMAIL_DOMAIN=auth.your-controlled-domain.example
 ACTIVATION_CODE_PEPPER=GENERATE_A_LONG_RANDOM_SERVER_SECRET
+DEV_ADMIN_LOGIN_ID=ADMIN
+DEV_ADMIN_FULL_NAME=Development Administrator
+DEV_ADMIN_PASSWORD=CHOOSE_A_LOCAL_DEVELOPMENT_PASSWORD
+DEV_ADMIN_NEW_PASSWORD=CHOOSE_A_DIFFERENT_LOCAL_PASSWORD_FOR_VERIFICATION
+DEV_TEACHER_LOGIN_ID=G001
+DEV_TEACHER_FULL_NAME=Development Teacher
+DEV_TEACHER_PASSWORD=CHOOSE_A_LOCAL_DEVELOPMENT_PASSWORD
+DEV_TEACHER_SELF_PASSWORD=CHOOSE_A_DIFFERENT_SELF_CHANGE_PASSWORD
+DEV_TEACHER_RESET_PASSWORD=CHOOSE_A_DIFFERENT_ADMIN_RESET_PASSWORD
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
-`SUPABASE_SERVICE_ROLE_KEY` is not used by normal login or password change. It is reserved for later server-only account provisioning. Never prefix it with `NEXT_PUBLIC_` and never place it in client code.
+`SUPABASE_SERVICE_ROLE_KEY` is not used by normal login or password change. The development provisioning command uses it only in a trusted server-side process. Never prefix it with `NEXT_PUBLIC_` and never place it in client code.
+
+The values shown for `DEV_ADMIN_PASSWORD` and `DEV_ADMIN_NEW_PASSWORD` are placeholders. Choose both real development passwords only in the ignored `.env.local`; never commit or paste them into documentation, source code, logs, or chat. `DEV_ADMIN_NEW_PASSWORD` is used only to verify the authenticated password-change flow and can be removed afterward.
+
+All `DEV_TEACHER_*PASSWORD` values are also placeholders. Real Teacher test credentials belong only in `.env.local` and are used for the one-account development integration flow.
 
 ## Database migration
 
-The initial migration is:
+The foundation and trusted-provisioning migrations are:
 
 ```text
 supabase/migrations/20260820000000_foundation.sql
+supabase/migrations/20260824000000_service_role_people_provisioning.sql
+supabase/migrations/20260824010000_service_role_teacher_status.sql
 ```
 
 It creates exactly four application tables:
@@ -61,9 +76,9 @@ It creates exactly four application tables:
 3. `attendance_settings`
 4. `qr_tokens`
 
-It also creates the approved enums, constraints, indexes, singleton attendance settings row, RLS policies, private role/person lookup helpers, and the narrow `mark_own_password_changed()` function.
+The foundation migration also creates the approved enums, constraints, indexes, singleton attendance settings row, RLS policies, private role/person lookup helpers, and the narrow `mark_own_password_changed()` function. The provisioning follow-up grants only `SELECT` and `INSERT` on `people` to the trusted `service_role`. The Teacher-status follow-up adds only column-level `UPDATE (is_active)` for that role. Neither grants anonymous access or disables RLS.
 
-Apply it to a development Supabase project using the Supabase CLI migration workflow or the dashboard SQL editor. This repository does not automatically apply it and has not applied it to a real project yet.
+Apply it separately to a development Supabase project using the Supabase CLI migration workflow or the dashboard SQL editor. Admin provisioning does not apply or modify migrations.
 
 Before real testing, disable public email sign-up in the Supabase Auth settings. Accounts for this application are created only through controlled administrator/student-claim workflows.
 
@@ -93,32 +108,30 @@ Passwords and password hashes are never stored in application tables.
 
 ## Initial administrator
 
-Until account-management screens are implemented, provision the first development admin manually:
+Until account-management screens are implemented, provision exactly one development Admin using the trusted local command:
 
-1. Create a Supabase Auth user in the dashboard using the synthetic email for the chosen admin login ID.
-2. Set a temporary password and mark the email confirmed.
-3. Copy the new Auth user UUID.
-4. Insert the linked application row through the SQL editor:
+1. Confirm the foundation migration is already applied to the linked development project.
+2. Put `DEV_ADMIN_LOGIN_ID`, `DEV_ADMIN_FULL_NAME`, and `DEV_ADMIN_PASSWORD` in `.env.local`.
+3. Run:
 
-```sql
-insert into public.people (
-  auth_user_id,
-  login_id,
-  full_name,
-  role,
-  claimed_at,
-  must_change_password
-) values (
-  'AUTH-USER-UUID',
-  'ADMIN',
-  'Administrator',
-  'admin',
-  now(),
-  true
-);
+```powershell
+npm run provision:dev-admin
 ```
 
-The login ID and internal email must use the same normalization/domain configured by the application.
+The command normalizes the login ID, creates one confirmed synthetic-email Auth identity, and inserts the linked active `admin` row. Re-running it with the same correctly linked account is non-destructive. It refuses conflicting Admin, login-ID, Auth-email, inactive, or inconsistent-link states. If the `people` insert fails after Auth creation, it attempts to remove the newly created Auth identity.
+
+Start the local application with `npm run dev`, open `/login`, and sign in using the visible login ID and password. The synthetic email is never entered or displayed. The development password remains managed only by Supabase Auth.
+
+## Teacher management
+
+An authenticated Admin manages Teacher accounts at `/admin/teachers`. The page supports:
+
+- creating one Auth user and linked `people` row with `role = teacher`
+- listing Login ID, full name, active status, and creation date
+- activating or deactivating application access through `people.is_active`
+- setting a new Teacher password through the server-only Supabase Admin API
+
+The UI never displays the synthetic email, Auth UUID, service-role credential, or any password. Teachers can still change only their own password through `/change-password`; no email recovery flow exists.
 
 ## Commands
 
@@ -127,6 +140,9 @@ npm run dev        # local Next.js development server
 npm run typecheck  # TypeScript validation
 npm run lint       # ESLint
 npm test           # local foundation unit/static tests
+npm run provision:dev-admin # create/check the single linked development Admin
+npm run test:admin-integration # real Admin Auth/link/RLS test; reads ignored .env.local
+npm run test:teacher-integration # final-state Teacher Auth/link/RLS test; uses DEV_TEACHER_RESET_PASSWORD
 npm run test:integration # real Auth/RLS tests; requires .env.test values loaded
 npm run build      # production Next.js build
 npm run check      # run all checks above
@@ -143,6 +159,7 @@ The local test suite verifies:
 - cross-student access denial logic
 - activation-code digest and claim eligibility rules
 - required migration tables, RLS enablement, and critical constraints
+- development Admin provisioning safeguards and server-only boundaries
 
 These tests do not prove Supabase Auth or PostgreSQL RLS against a live database. Before calling the system production-ready, apply the migration to a dedicated development Supabase project and run authenticated integration tests with separate admin, teacher, and two student accounts.
 
