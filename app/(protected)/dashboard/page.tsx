@@ -7,7 +7,7 @@ const roleCopy = {
   },
   teacher: {
     title: "Dasbor Guru",
-    description: "Area operasional presensi guru akan dibangun pada tahap berikutnya.",
+    description: "Pilih kelas dan catat presensi siswa hari ini dari area operasional guru.",
   },
   student: {
     title: "Dasbor Siswa",

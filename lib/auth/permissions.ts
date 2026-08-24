@@ -10,7 +10,6 @@ export type Capability =
 const PERMISSIONS: Record<AppRole, ReadonlySet<Capability>> = {
   admin: new Set([
     "access_admin",
-    "access_teacher_operations",
     "change_own_password",
     "read_all_attendance",
   ]),
