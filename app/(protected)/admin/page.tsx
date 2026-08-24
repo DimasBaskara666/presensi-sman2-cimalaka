@@ -15,6 +15,11 @@ export default async function AdminPage() {
 
       <div className="admin-sections">
         <section className="card narrow">
+          <h2>Student Management</h2>
+          <p className="muted">Import and review the school Student roster without creating Auth accounts.</p>
+          <Link className="button button-primary" href="/admin/students">Manage Students</Link>
+        </section>
+        <section className="card narrow">
           <h2>Pengelolaan Guru</h2>
           <p className="muted">Buat akun guru, aktifkan atau nonaktifkan akses, dan reset kata sandi.</p>
           <Link className="button button-primary" href="/admin/teachers">Kelola guru</Link>

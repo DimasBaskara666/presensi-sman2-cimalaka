@@ -2,7 +2,7 @@
 
 This branch contains the first conventional Next.js and Supabase foundation for the PKM attendance system. It includes real Supabase Auth integration points, server-side route protection, database-backed roles, the initial PostgreSQL schema, and RLS policies.
 
-It does **not** contain QR generation/scanning, attendance mutations, Excel import, manual attendance, reports, student registration UI, or production deployment.
+It does **not** contain QR generation/scanning, attendance mutations, manual attendance, reports, student activation/Auth creation, or production deployment.
 
 The original Vinext prototype is preserved locally at:
 
@@ -67,6 +67,8 @@ The foundation and trusted-provisioning migrations are:
 supabase/migrations/20260820000000_foundation.sql
 supabase/migrations/20260824000000_service_role_people_provisioning.sql
 supabase/migrations/20260824010000_service_role_teacher_status.sql
+supabase/migrations/20260825000000_student_import.sql
+supabase/migrations/20260825010000_student_import_test_cleanup.sql
 ```
 
 It creates exactly four application tables:
@@ -76,7 +78,7 @@ It creates exactly four application tables:
 3. `attendance_settings`
 4. `qr_tokens`
 
-The foundation migration also creates the approved enums, constraints, indexes, singleton attendance settings row, RLS policies, private role/person lookup helpers, and the narrow `mark_own_password_changed()` function. The provisioning follow-up grants only `SELECT` and `INSERT` on `people` to the trusted `service_role`. The Teacher-status follow-up adds only column-level `UPDATE (is_active)` for that role. Neither grants anonymous access or disables RLS.
+The foundation migration also creates the approved enums, constraints, indexes, singleton attendance settings row, RLS policies, private role/person lookup helpers, and the narrow `mark_own_password_changed()` function. The provisioning follow-up grants only `SELECT` and `INSERT` on `people` to the trusted `service_role`. The Teacher-status follow-up adds only column-level `UPDATE (is_active)` for that role. The Student-import follow-up permits unclaimed roster rows without activation codes, removes Teacher-wide access to Student identity rows, and adds a service-role-only transactional roster function. A separate test-support migration permits only the service role to remove fresh, unclaimed, attendance-free rows with the integration test's reserved synthetic prefix; it cannot remove ordinary, claimed, or historical Student records. None grants anonymous access or disables RLS.
 
 Apply it separately to a development Supabase project using the Supabase CLI migration workflow or the dashboard SQL editor. Admin provisioning does not apply or modify migrations.
 
@@ -133,6 +135,14 @@ An authenticated Admin manages Teacher accounts at `/admin/teachers`. The page s
 
 The UI never displays the synthetic email, Auth UUID, service-role credential, or any password. Teachers can still change only their own password through `/change-password`; no email recovery flow exists.
 
+## Student roster import
+
+An authenticated Admin manages imported Student records at `/admin/students` and uploads one `.xlsx` workbook at `/admin/students/import`. The workflow inspects arbitrary headers, requires explicit column mapping and NIS/NISN selection, validates and previews without database writes, then reparses the same workbook before one transactional import.
+
+Limits are 5 MB, one worksheet, and 2,000 meaningful Student rows. IDs remain text; plain numeric IDs without explicit zero-padding are rejected. New Students remain unlinked to Supabase Auth with no activation code. Re-import updates only name and class while preserving identity, active status, Auth linkage, activation state, and passwords. Missing Students are reported but never deleted or deactivated automatically.
+
+Excel parsing uses the exactly pinned `exceljs` dependency only from server-reached code. Uploaded files are not permanently stored.
+
 ## Commands
 
 ```powershell
@@ -143,6 +153,7 @@ npm test           # local foundation unit/static tests
 npm run provision:dev-admin # create/check the single linked development Admin
 npm run test:admin-integration # real Admin Auth/link/RLS test; reads ignored .env.local
 npm run test:teacher-integration # final-state Teacher Auth/link/RLS test; uses DEV_TEACHER_RESET_PASSWORD
+npm run test:student-import-integration # live roster transaction and privacy test; creates no Auth users
 npm run test:integration # real Auth/RLS tests; requires .env.test values loaded
 npm run build      # production Next.js build
 npm run check      # run all checks above
@@ -160,6 +171,7 @@ The local test suite verifies:
 - activation-code digest and claim eligibility rules
 - required migration tables, RLS enablement, and critical constraints
 - development Admin provisioning safeguards and server-only boundaries
+- synthetic `.xlsx` parsing, column mapping, leading-zero preservation, and roster-import safeguards
 
 These tests do not prove Supabase Auth or PostgreSQL RLS against a live database. Before calling the system production-ready, apply the migration to a dedicated development Supabase project and run authenticated integration tests with separate admin, teacher, and two student accounts.
 
@@ -171,7 +183,7 @@ Copy `.env.test.example` to a private environment file, provide development-only
 - Role data is never accepted from the browser.
 - Anonymous roles have no table grants or RLS policies.
 - Students can read only their own people/attendance rows under RLS.
-- Teachers can read operational student and attendance rows but cannot update settings.
+- Teachers cannot query unrestricted Student identity rows; a narrow attendance directory will be designed with the Attendance milestone.
 - Only admins receive the attendance-settings update policy.
 - Direct attendance and QR table writes are not granted to authenticated users.
 - Activation-code digests and QR token hashes are excluded from normal client column grants.
