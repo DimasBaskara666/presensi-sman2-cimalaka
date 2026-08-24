@@ -171,6 +171,12 @@ h2 {
   background: transparent;
 }
 
+.button-small {
+  min-height: 2.2rem;
+  padding: 0.4rem 0.65rem;
+  font-size: 0.82rem;
+}
+
 .alert {
   margin: 1rem 0 0;
   padding: 0.75rem 0.9rem;
@@ -186,6 +192,17 @@ h2 {
 .alert-success {
   color: var(--success);
   background: var(--success-soft);
+}
+
+.form-hint,
+.auth-footer-link {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.auth-footer-link {
+  margin-top: 1rem;
 }
 
 .shell {
@@ -409,6 +426,35 @@ h2 {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
+}
+
+.account-actions {
+  align-items: center;
+  margin-top: 1.25rem;
+}
+
+.account-scope-note {
+  margin-top: 1rem;
+}
+
+.activation-code-panel {
+  margin-top: 1.25rem;
+}
+
+.activation-code-reveal {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 2px solid var(--primary);
+  border-radius: 0.8rem;
+  background: var(--surface-soft);
+}
+
+.activation-code-value {
+  margin: 0.5rem 0 0.75rem;
+  overflow-wrap: anywhere;
+  font-size: 1.2rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
 }
 
 .import-workflow {

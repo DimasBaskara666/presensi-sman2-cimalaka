@@ -2,7 +2,7 @@
 
 This branch contains the first conventional Next.js and Supabase foundation for the PKM attendance system. It includes real Supabase Auth integration points, server-side route protection, database-backed roles, the initial PostgreSQL schema, and RLS policies.
 
-It does **not** contain QR generation/scanning, attendance mutations, manual attendance, reports, student activation/Auth creation, or production deployment.
+It does **not** contain QR generation/scanning, attendance mutations, manual attendance, reports, email recovery, or production deployment.
 
 The original Vinext prototype is preserved locally at:
 
@@ -41,6 +41,7 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=YOUR_PUBLISHABLE_KEY
 SUPABASE_SERVICE_ROLE_KEY=YOUR_SERVER_ONLY_SERVICE_ROLE_KEY
 AUTH_EMAIL_DOMAIN=auth.your-controlled-domain.example
 ACTIVATION_CODE_PEPPER=GENERATE_A_LONG_RANDOM_SERVER_SECRET
+ACTIVATION_CODE_TTL_HOURS=SET_THE_SCHOOL_APPROVED_VALIDITY_PERIOD
 DEV_ADMIN_LOGIN_ID=ADMIN
 DEV_ADMIN_FULL_NAME=Development Administrator
 DEV_ADMIN_PASSWORD=CHOOSE_A_LOCAL_DEVELOPMENT_PASSWORD
@@ -50,6 +51,10 @@ DEV_TEACHER_FULL_NAME=Development Teacher
 DEV_TEACHER_PASSWORD=CHOOSE_A_LOCAL_DEVELOPMENT_PASSWORD
 DEV_TEACHER_SELF_PASSWORD=CHOOSE_A_DIFFERENT_SELF_CHANGE_PASSWORD
 DEV_TEACHER_RESET_PASSWORD=CHOOSE_A_DIFFERENT_ADMIN_RESET_PASSWORD
+DEV_STUDENT_LOGIN_ID=ZSTDEV001
+DEV_STUDENT_FULL_NAME=Synthetic Development Student
+DEV_STUDENT_CLASS_NAME=SYN-DEV
+DEV_STUDENT_PASSWORD=CHOOSE_A_LOCAL_DEVELOPMENT_PASSWORD
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
@@ -69,6 +74,8 @@ supabase/migrations/20260824000000_service_role_people_provisioning.sql
 supabase/migrations/20260824010000_service_role_teacher_status.sql
 supabase/migrations/20260825000000_student_import.sql
 supabase/migrations/20260825010000_student_import_test_cleanup.sql
+supabase/migrations/20260825100000_student_activation.sql
+supabase/migrations/20260825110000_student_activation_auth_metadata_update.sql
 ```
 
 It creates exactly four application tables:
@@ -78,7 +85,9 @@ It creates exactly four application tables:
 3. `attendance_settings`
 4. `qr_tokens`
 
-The foundation migration also creates the approved enums, constraints, indexes, singleton attendance settings row, RLS policies, private role/person lookup helpers, and the narrow `mark_own_password_changed()` function. The provisioning follow-up grants only `SELECT` and `INSERT` on `people` to the trusted `service_role`. The Teacher-status follow-up adds only column-level `UPDATE (is_active)` for that role. The Student-import follow-up permits unclaimed roster rows without activation codes, removes Teacher-wide access to Student identity rows, and adds a service-role-only transactional roster function. A separate test-support migration permits only the service role to remove fresh, unclaimed, attendance-free rows with the integration test's reserved synthetic prefix; it cannot remove ordinary, claimed, or historical Student records. None grants anonymous access or disables RLS.
+The foundation migration also creates the approved enums, constraints, indexes, singleton attendance settings row, RLS policies, private role/person lookup helpers, and the narrow `mark_own_password_changed()` function. The provisioning follow-up grants only `SELECT` and `INSERT` on `people` to the trusted `service_role`. The Teacher-status follow-up adds only column-level `UPDATE (is_active)` for that role. The Student-import follow-up permits imported rows awaiting activation codes, removes Teacher-wide access to Student identity rows, and adds a service-role-only transactional roster function. A separate test-support migration permits only the service role to remove fresh, unclaimed, attendance-free rows with the integration test's reserved synthetic prefix; it cannot remove ordinary, claimed, or historical Student records.
+
+The Student-activation migrations add a service-role-only code-preparation function and a narrowly gated `auth.users` trigger. The trigger handles both Auth insertion and the Admin API's metadata-update lifecycle, links the new Auth UUID, sets `claimed_at`, and consumes the matching digest. A failed or racing link aborts the marked Auth operation, while the application retains a compensating orphan cleanup check. The temporary activation marker is removed from Auth metadata during linking. No migration grants anonymous writes or disables RLS.
 
 Apply it separately to a development Supabase project using the Supabase CLI migration workflow or the dashboard SQL editor. Admin provisioning does not apply or modify migrations.
 
@@ -143,6 +152,16 @@ Limits are 5 MB, one worksheet, and 2,000 meaningful Student rows. IDs remain te
 
 Excel parsing uses the exactly pinned `exceljs` dependency only from server-reached code. Uploaded files are not permanently stored.
 
+## Student account activation
+
+An Admin prepares a code from the separate activation page linked from `/admin/students`. The random plaintext code is returned only in that authenticated response and disappears when the page reloads. PostgreSQL stores only its HMAC-SHA256 digest. Regeneration replaces the digest and immediately invalidates the previous code.
+
+The code carries a digest-protected expiration time. `ACTIVATION_CODE_TTL_HOURS` is intentionally required server-side so the application does not invent a school distribution policy. The code pepper, duration, plaintext codes, and development password must never enter client code, documentation values, logs, or Git.
+
+An eligible Student visits `/activate` and supplies Student ID, activation code, and a new password. The password must contain at least 10 characters, one letter, and one number, and must differ from the Student ID. Supabase Auth is the only password store. Successful activation creates one confirmed synthetic-email Auth identity, atomically links it to the existing Student row, consumes the code, starts the Student session, and redirects to `/student`.
+
+The minimal `/student` page displays only the authenticated Student's name, ID, class, and account status. Attendance remains outside this milestone. There is no Student email recovery or self-reset flow.
+
 ## Commands
 
 ```powershell
@@ -154,6 +173,7 @@ npm run provision:dev-admin # create/check the single linked development Admin
 npm run test:admin-integration # real Admin Auth/link/RLS test; reads ignored .env.local
 npm run test:teacher-integration # final-state Teacher Auth/link/RLS test; uses DEV_TEACHER_RESET_PASSWORD
 npm run test:student-import-integration # live roster transaction and privacy test; creates no Auth users
+npm run test:student-activation-integration # one synthetic Student Auth/link/RLS/routing test
 npm run test:integration # real Auth/RLS tests; requires .env.test values loaded
 npm run build      # production Next.js build
 npm run check      # run all checks above
@@ -172,8 +192,9 @@ The local test suite verifies:
 - required migration tables, RLS enablement, and critical constraints
 - development Admin provisioning safeguards and server-only boundaries
 - synthetic `.xlsx` parsing, column mapping, leading-zero preservation, and roster-import safeguards
+- activation-code randomness, digest verification, expiration, password policy, one-time linkage, and server-only boundaries
 
-These tests do not prove Supabase Auth or PostgreSQL RLS against a live database. Before calling the system production-ready, apply the migration to a dedicated development Supabase project and run authenticated integration tests with separate admin, teacher, and two student accounts.
+Offline tests do not prove Supabase Auth or PostgreSQL RLS against a live database. Before calling the system production-ready, apply migrations to a dedicated development Supabase project and run the dedicated integration commands. The activation integration creates at most one persistent synthetic Student Auth fixture and one temporary unclaimed privacy row; the privacy row is removed afterward.
 
 Copy `.env.test.example` to a private environment file, provide development-only test accounts, load those variables into the shell, and run `npm run test:integration`. The integration test is automatically skipped when its required variables are absent. It creates and removes one future-dated attendance fixture through the server-only service-role client.
 
@@ -188,3 +209,5 @@ Copy `.env.test.example` to a private environment file, provide development-only
 - Direct attendance and QR table writes are not granted to authenticated users.
 - Activation-code digests and QR token hashes are excluded from normal client column grants.
 - The service-role key has no browser import or endpoint in this milestone.
+- Public activation returns generic account/code failures and never grants anonymous table access.
+- Activation codes are HMAC digests at rest, expire, and are consumed by the atomic Auth-link trigger.

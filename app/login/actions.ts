@@ -35,5 +35,6 @@ export async function loginAction(formData: FormData) {
   }
 
   if (result.status === "invalid") redirect("/login?error=invalid");
-  redirect(shouldRequirePasswordChange(result.person) ? "/change-password" : "/dashboard");
+  if (shouldRequirePasswordChange(result.person)) redirect("/change-password");
+  redirect(result.person.role === "student" ? "/student" : "/dashboard");
 }

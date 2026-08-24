@@ -31,7 +31,7 @@ export default async function ProtectedLayout({ children }: Readonly<{ children:
             <Link className="nav-link" href="/teacher">Operasional guru</Link>
           ) : null}
           {hasCapability(person.role, "read_own_attendance") ? (
-            <Link className="nav-link" href="/student">Presensi saya</Link>
+            <Link className="nav-link" href="/student">Akun siswa</Link>
           ) : null}
           <Link className="nav-link" href="/change-password">Ubah kata sandi</Link>
         </nav>

@@ -25,7 +25,9 @@ export default async function ChangePasswordPage({ searchParams }: ChangePasswor
           <p className="alert alert-error" role="alert">
             {error === "invalid"
               ? "Lengkapi semua kolom dan pastikan konfirmasi sama."
-              : "Kata sandi tidak dapat diubah. Periksa kata sandi saat ini dan kebijakan kata sandi."}
+              : error === "student_policy"
+                ? "Kata sandi siswa harus memiliki minimal 10 karakter, satu huruf, satu angka, dan berbeda dari ID siswa."
+                : "Kata sandi tidak dapat diubah. Periksa kata sandi saat ini dan kebijakan kata sandi."}
           </p>
         ) : null}
         {status === "success" ? <p className="alert alert-success">Kata sandi berhasil diubah.</p> : null}
@@ -42,11 +44,11 @@ export default async function ChangePasswordPage({ searchParams }: ChangePasswor
           </div>
           <div className="field">
             <label htmlFor="new_password">Kata sandi baru</label>
-            <input id="new_password" name="new_password" type="password" autoComplete="new-password" required />
+            <input id="new_password" name="new_password" type="password" autoComplete="new-password" minLength={person.role === "student" ? 10 : undefined} required />
           </div>
           <div className="field">
             <label htmlFor="confirm_password">Ulangi kata sandi baru</label>
-            <input id="confirm_password" name="confirm_password" type="password" autoComplete="new-password" required />
+            <input id="confirm_password" name="confirm_password" type="password" autoComplete="new-password" minLength={person.role === "student" ? 10 : undefined} required />
           </div>
           <button className="button button-primary" type="submit">Simpan kata sandi</button>
         </form>

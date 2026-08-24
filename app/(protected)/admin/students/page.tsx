@@ -56,7 +56,7 @@ export default async function StudentsPage({ searchParams }: StudentPageProps) {
         <p className="muted">Showing {filtered.length} of {students.length} Students.</p>
         <div className="table-wrap">
           <table className="data-table">
-            <thead><tr><th>Student ID</th><th>Type</th><th>Name</th><th>Class</th><th>Status</th><th>Activation</th></tr></thead>
+            <thead><tr><th>Student ID</th><th>Type</th><th>Name</th><th>Class</th><th>Status</th><th>Activation</th><th>Action</th></tr></thead>
             <tbody>
               {filtered.map((student) => (
                 <tr key={student.loginId}>
@@ -65,7 +65,15 @@ export default async function StudentsPage({ searchParams }: StudentPageProps) {
                   <td>{student.fullName}</td>
                   <td>{student.className}</td>
                   <td>{student.isActive ? "Active" : "Inactive"}</td>
-                  <td>{student.isActivated ? "Activated" : "Not activated"}</td>
+                  <td>{student.isActivated ? "Activated" : student.hasActivationCode ? "Code prepared" : "Code not prepared"}</td>
+                  <td>
+                    <Link
+                      className="button button-secondary button-small"
+                      href={`/admin/students/${encodeURIComponent(student.loginId)}/activation`}
+                    >
+                      Manage activation
+                    </Link>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -76,4 +84,3 @@ export default async function StudentsPage({ searchParams }: StudentPageProps) {
     </>
   );
 }
-

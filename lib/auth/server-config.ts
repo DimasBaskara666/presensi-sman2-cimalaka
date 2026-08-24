@@ -16,3 +16,12 @@ export function getActivationCodePepper(): string {
   }
   return value;
 }
+
+export function getActivationCodeTtlHours(): number {
+  const value = process.env.ACTIVATION_CODE_TTL_HOURS;
+  const ttlHours = value ? Number(value) : Number.NaN;
+  if (!Number.isSafeInteger(ttlHours) || ttlHours <= 0) {
+    throw new Error("ACTIVATION_CODE_TTL_HOURS must be a positive whole number.");
+  }
+  return ttlHours;
+}

@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { hasCapability } from "@/lib/auth/permissions";
+import { evaluateStudentPassword } from "@/lib/auth/password-policy";
 import { requireCurrentPerson } from "@/lib/auth/require-person";
 import { createClient } from "@/lib/supabase/server";
 
@@ -15,6 +16,12 @@ export async function changePasswordAction(formData: FormData) {
 
   if (!currentPassword || !newPassword || newPassword !== confirmation) {
     redirect("/change-password?error=invalid");
+  }
+  if (
+    person.role === "student" &&
+    evaluateStudentPassword(newPassword, person.loginId) !== "valid"
+  ) {
+    redirect("/change-password?error=student_policy");
   }
 
   const supabase = await createClient();

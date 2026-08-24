@@ -7,7 +7,7 @@ import { loginAction } from "./actions";
 export const dynamic = "force-dynamic";
 
 type LoginPageProps = {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; status?: string }>;
 };
 
 const errorMessages: Record<string, string> = {
@@ -19,7 +19,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const person = await getCurrentPerson();
   if (person) redirect(shouldRequirePasswordChange(person) ? "/change-password" : "/dashboard");
 
-  const { error } = await searchParams;
+  const { error, status } = await searchParams;
   const errorMessage = error ? errorMessages[error] : null;
 
   return (
@@ -31,6 +31,9 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         <p className="muted">Gunakan ID sekolah dan kata sandi akun Anda.</p>
 
         {errorMessage ? <p className="alert alert-error" role="alert">{errorMessage}</p> : null}
+        {status === "activated" ? (
+          <p className="alert alert-success">Akun sudah aktif. Silakan masuk menggunakan kata sandi baru.</p>
+        ) : null}
 
         <form action={loginAction} className="form-stack">
           <div className="field">
@@ -58,7 +61,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         </form>
 
         <p className="muted" style={{ marginTop: "1rem", marginBottom: 0 }}>
-          Pendaftaran siswa akan tersedia pada tahap berikutnya. <Link href="/">Kembali</Link>
+          Siswa baru? <Link href="/activate">Aktifkan akun</Link>. <Link href="/">Kembali</Link>
         </p>
       </section>
     </main>
