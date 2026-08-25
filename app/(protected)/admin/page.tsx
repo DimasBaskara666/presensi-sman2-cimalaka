@@ -15,6 +15,11 @@ export default async function AdminPage() {
 
       <div className="admin-sections">
         <section className="card narrow">
+          <h2>Riwayat dan Laporan</h2>
+          <p className="muted">Filter riwayat presensi dan unduh laporan PDF sesuai periode.</p>
+          <Link className="button button-primary" href="/attendance/history">Buka Riwayat</Link>
+        </section>
+        <section className="card narrow">
           <h2>QR Presensi Siswa</h2>
           <p className="muted">Buat, putar, tampilkan, atau cabut satu QR presensi aktif.</p>
           <Link className="button button-primary" href="/admin/attendance-qr">Kelola QR Presensi</Link>

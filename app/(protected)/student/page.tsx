@@ -68,6 +68,7 @@ export default async function StudentPage() {
           </div>
         ) : null}
         <Link className="button button-primary student-scan-primary" href="/student/scan">Scan QR Presensi</Link>
+        <Link className="button button-secondary" href="/attendance/history">Lihat Riwayat Saya</Link>
         <p className="muted">QR hanya memulai proses. Tanggal, waktu, dan status ditentukan server sekolah.</p>
       </section>
 
