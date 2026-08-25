@@ -25,13 +25,19 @@ export default async function ProtectedLayout({ children }: Readonly<{ children:
         <nav className="nav-list" aria-label="Navigasi utama">
           <Link className="nav-link" href="/dashboard">Ringkasan</Link>
           {hasCapability(person.role, "access_admin") ? (
-            <Link className="nav-link" href="/admin">Administrasi</Link>
+            <>
+              <Link className="nav-link" href="/admin">Administrasi</Link>
+              <Link className="nav-link" href="/admin/attendance-qr">QR presensi</Link>
+            </>
           ) : null}
           {hasCapability(person.role, "access_teacher_operations") ? (
             <Link className="nav-link" href="/teacher">Operasional guru</Link>
           ) : null}
           {hasCapability(person.role, "read_own_attendance") ? (
-            <Link className="nav-link" href="/student">Akun siswa</Link>
+            <>
+              <Link className="nav-link" href="/student">Akun siswa</Link>
+              <Link className="nav-link" href="/student/scan">Scan QR</Link>
+            </>
           ) : null}
           <Link className="nav-link" href="/change-password">Ubah kata sandi</Link>
         </nav>

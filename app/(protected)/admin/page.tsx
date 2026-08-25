@@ -15,6 +15,11 @@ export default async function AdminPage() {
 
       <div className="admin-sections">
         <section className="card narrow">
+          <h2>QR Presensi Siswa</h2>
+          <p className="muted">Buat, putar, tampilkan, atau cabut satu QR presensi aktif.</p>
+          <Link className="button button-primary" href="/admin/attendance-qr">Kelola QR Presensi</Link>
+        </section>
+        <section className="card narrow">
           <h2>Student Management</h2>
           <p className="muted">Import and review the school Student roster without creating Auth accounts.</p>
           <Link className="button button-primary" href="/admin/students">Manage Students</Link>

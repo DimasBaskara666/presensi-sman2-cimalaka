@@ -11,7 +11,7 @@ const roleCopy = {
   },
   student: {
     title: "Dasbor Siswa",
-    description: "Riwayat presensi pribadi akan tersedia setelah transaksi presensi diterapkan.",
+    description: "Pindai QR sekolah untuk mencatat presensi masuk atau pulang dari akun Anda.",
   },
 } as const;
 
@@ -45,8 +45,8 @@ export default async function DashboardPage() {
           <p className="muted">Sesi menggunakan Supabase Auth. Otorisasi halaman diperiksa kembali di server.</p>
         </section>
         <section className="card">
-          <h2>Tahap berikutnya</h2>
-          <p className="muted">QR, impor Excel, transaksi presensi, dan laporan belum diaktifkan pada milestone fondasi.</p>
+          <h2>Operasional aktif</h2>
+          <p className="muted">Impor siswa, presensi manual Guru, dan QR presensi Siswa menggunakan transaksi PostgreSQL terkontrol.</p>
         </section>
       </div>
     </>

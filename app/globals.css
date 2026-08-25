@@ -875,6 +875,241 @@ h2 {
   max-width: 40rem;
 }
 
+.student-home-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 1rem;
+  max-width: 58rem;
+}
+
+.student-attendance-primary {
+  display: grid;
+  gap: 0.9rem;
+  border-color: rgba(18, 107, 81, 0.35);
+  background: linear-gradient(145deg, #ffffff, var(--surface-soft));
+}
+
+.student-attendance-primary h2,
+.student-attendance-primary p {
+  margin-bottom: 0;
+}
+
+.student-attendance-times {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  background: white;
+  font-size: 0.9rem;
+}
+
+.student-scan-primary {
+  width: 100%;
+  min-height: 3.5rem;
+  font-size: 1.05rem;
+}
+
+.student-scan-page,
+.admin-qr-page {
+  width: 100%;
+  max-width: 76rem;
+  margin: 0 auto;
+}
+
+.student-scan-card {
+  display: grid;
+  gap: 1rem;
+  max-width: 36rem;
+  margin: 0 auto;
+}
+
+.student-scan-card h2,
+.student-scan-card p {
+  margin-bottom: 0;
+}
+
+.student-camera-frame {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  width: min(100%, 28rem);
+  display: grid;
+  place-items: center;
+  margin: 0 auto;
+  overflow: hidden;
+  border: 2px dashed #9ab1a8;
+  border-radius: 1rem;
+  color: var(--muted);
+  background: #e8efec;
+}
+
+.student-camera-frame::after {
+  content: "";
+  position: absolute;
+  inset: 13%;
+  border: 3px solid rgba(255, 255, 255, 0.9);
+  border-radius: 0.8rem;
+  pointer-events: none;
+}
+
+.student-camera-frame video {
+  width: 100%;
+  height: 100%;
+  display: none;
+  object-fit: cover;
+}
+
+.student-camera-frame.is-active {
+  border-style: solid;
+  border-color: var(--primary);
+  background: #102a22;
+}
+
+.student-camera-frame.is-active video {
+  display: block;
+}
+
+.student-camera-frame > span {
+  font-size: 2rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.student-scan-actions .button {
+  flex: 1 1 10rem;
+  min-height: 3.2rem;
+}
+
+.student-token-received,
+.student-scan-result {
+  display: grid;
+  gap: 0.6rem;
+  padding: 1rem;
+  border-radius: 0.85rem;
+  background: var(--surface-soft);
+}
+
+.student-token-received .button {
+  min-height: 3.2rem;
+}
+
+.student-scan-result.is-success {
+  border: 1px solid rgba(23, 106, 67, 0.35);
+  color: var(--success);
+  background: var(--success-soft);
+}
+
+.student-scan-result.is-error {
+  border: 1px solid rgba(163, 41, 41, 0.25);
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.student-scan-pending {
+  color: var(--primary-dark);
+  font-weight: 750;
+}
+
+.student-scan-help {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.admin-qr-layout {
+  display: grid;
+  grid-template-columns: minmax(18rem, 0.75fr) minmax(24rem, 1.25fr);
+  align-items: start;
+  gap: 1rem;
+}
+
+.admin-qr-controls,
+.admin-qr-display {
+  display: grid;
+  gap: 1rem;
+}
+
+.admin-qr-controls h2,
+.admin-qr-controls p,
+.admin-qr-display h2,
+.admin-qr-display p {
+  margin-bottom: 0;
+}
+
+.admin-qr-metadata {
+  display: grid;
+  gap: 0.65rem;
+  margin: 0;
+}
+
+.admin-qr-metadata div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.admin-qr-metadata dt {
+  color: var(--muted);
+}
+
+.admin-qr-metadata dd {
+  margin: 0;
+  font-weight: 750;
+  text-align: right;
+}
+
+.admin-qr-actions .button {
+  flex: 1 1 9rem;
+}
+
+.admin-qr-security-note {
+  font-size: 0.84rem;
+}
+
+.admin-qr-display-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.admin-qr-image-panel {
+  display: grid;
+  justify-items: center;
+  gap: 0.65rem;
+  text-align: center;
+}
+
+.admin-qr-image-panel img {
+  width: min(100%, 34rem);
+  height: auto;
+  border: 1px solid var(--border);
+  border-radius: 0.85rem;
+  background: white;
+}
+
+.admin-qr-placeholder {
+  min-height: 24rem;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 0.75rem;
+  padding: 2rem;
+  border: 2px dashed var(--border);
+  border-radius: 1rem;
+  color: var(--muted);
+  text-align: center;
+  background: #f8faf9;
+}
+
+.admin-qr-placeholder span {
+  font-size: 2.5rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
 @media (min-width: 680px) {
   .attendance-class-card {
     grid-template-columns: minmax(0, 1fr) minmax(20rem, 0.8fr);
@@ -911,6 +1146,11 @@ h2 {
     grid-template-columns: 1fr;
   }
 
+  .student-home-grid,
+  .admin-qr-layout {
+    grid-template-columns: 1fr;
+  }
+
   .mapping-grid,
   .summary-grid,
   .student-filters {
@@ -920,6 +1160,35 @@ h2 {
   .teacher-actions {
     align-items: stretch;
     flex-direction: column;
+  }
+}
+
+@media print {
+  body {
+    background: white;
+  }
+
+  .sidebar,
+  .print-hidden,
+  .admin-qr-controls,
+  .admin-qr-display-heading .eyebrow {
+    display: none !important;
+  }
+
+  .shell,
+  .admin-qr-layout {
+    display: block;
+  }
+
+  .content,
+  .admin-qr-display {
+    padding: 0;
+    border: 0;
+    box-shadow: none;
+  }
+
+  .admin-qr-image-panel img {
+    width: min(78vw, 17cm);
   }
 }
 
