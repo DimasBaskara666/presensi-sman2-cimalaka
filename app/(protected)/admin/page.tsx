@@ -15,6 +15,16 @@ export default async function AdminPage() {
 
       <div className="admin-sections">
         <section className="card narrow">
+          <h2>Pengaturan Presensi</h2>
+          <p className="muted">Atur jam masuk, toleransi keterlambatan, dan minimum jam pulang.</p>
+          <Link className="button button-primary" href="/admin/attendance-settings">Buka Pengaturan</Link>
+        </section>
+        <section className="card narrow">
+          <h2>Koreksi Presensi</h2>
+          <p className="muted">Koreksi catatan presensi dengan alasan dan riwayat audit.</p>
+          <Link className="button button-primary" href="/admin/attendance-corrections">Buka Koreksi</Link>
+        </section>
+        <section className="card narrow">
           <h2>Riwayat dan Laporan</h2>
           <p className="muted">Filter riwayat presensi dan unduh laporan PDF sesuai periode.</p>
           <Link className="button button-primary" href="/attendance/history">Buka Riwayat</Link>

@@ -1,4 +1,6 @@
 import "server-only";
+import { normalizeLoginId } from "@/lib/auth/login-id";
+import { evaluateStudentPassword } from "@/lib/auth/password-policy";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { StudentImportError } from "./student-import";
 
@@ -13,6 +15,21 @@ export type StudentSummary = {
 };
 
 export type StudentActivationSummary = StudentSummary;
+
+export type StudentAdministrationErrorCode =
+  | "invalid_password"
+  | "student_lookup_failed"
+  | "student_not_found"
+  | "student_not_activated"
+  | "student_status_failed"
+  | "password_reset_failed";
+
+export class StudentAdministrationError extends Error {
+  constructor(readonly code: StudentAdministrationErrorCode) {
+    super(`Student administration failed (${code}).`);
+    this.name = "StudentAdministrationError";
+  }
+}
 
 export async function listStudents(): Promise<StudentSummary[]> {
   const admin = createAdminClient();
@@ -62,4 +79,49 @@ export async function getStudentActivationSummary(
     isActivated: data.auth_user_id !== null,
     hasActivationCode: data.claim_code_digest !== null,
   };
+}
+
+export async function setStudentActive(
+  submittedLoginId: string,
+  isActive: boolean,
+): Promise<void> {
+  const loginId = normalizeLoginId(submittedLoginId);
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("people")
+    .update({ is_active: isActive })
+    .eq("login_id", loginId)
+    .eq("role", "student")
+    .select("id")
+    .maybeSingle();
+  if (error) throw new StudentAdministrationError("student_status_failed");
+  if (!data) throw new StudentAdministrationError("student_not_found");
+}
+
+export async function resetStudentPassword(
+  submittedLoginId: string,
+  password: string,
+): Promise<void> {
+  const loginId = normalizeLoginId(submittedLoginId);
+  if (evaluateStudentPassword(password, loginId) !== "valid") {
+    throw new StudentAdministrationError("invalid_password");
+  }
+
+  const admin = createAdminClient();
+  const { data: student, error: lookupError } = await admin
+    .from("people")
+    .select("auth_user_id, role")
+    .eq("login_id", loginId)
+    .eq("role", "student")
+    .maybeSingle();
+  if (lookupError) throw new StudentAdministrationError("student_lookup_failed");
+  if (!student) throw new StudentAdministrationError("student_not_found");
+  if (!student.auth_user_id || student.role !== "student") {
+    throw new StudentAdministrationError("student_not_activated");
+  }
+
+  const { error } = await admin.auth.admin.updateUserById(student.auth_user_id, {
+    password,
+  });
+  if (error) throw new StudentAdministrationError("password_reset_failed");
 }

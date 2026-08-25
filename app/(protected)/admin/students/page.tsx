@@ -1,11 +1,30 @@
 import Link from "next/link";
 import { requireCurrentPerson } from "@/lib/auth/require-person";
 import { listStudents } from "@/lib/students/student-management";
+import { resetStudentPasswordAction, setStudentActiveAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
 type StudentPageProps = {
-  searchParams: Promise<{ query?: string; class?: string }>;
+  searchParams: Promise<{ query?: string; class?: string; error?: string; status?: string }>;
+};
+
+const statusMessages: Record<string, string> = {
+  activated: "Akses siswa berhasil diaktifkan.",
+  deactivated: "Akses siswa berhasil dinonaktifkan.",
+  password_reset: "Kata sandi siswa berhasil diatur ulang.",
+};
+
+const errorMessages: Record<string, string> = {
+  invalid_login_id: "ID siswa tidak valid.",
+  invalid_status: "Status akun tidak valid.",
+  invalid_password: "Kata sandi harus memenuhi kebijakan kata sandi siswa.",
+  password_mismatch: "Konfirmasi kata sandi tidak sama.",
+  student_not_found: "Data siswa tidak ditemukan.",
+  student_not_activated: "Kata sandi hanya dapat diatur ulang untuk akun yang sudah diaktivasi.",
+  student_status_failed: "Status siswa tidak dapat diperbarui.",
+  password_reset_failed: "Kata sandi siswa tidak dapat diatur ulang.",
+  service_error: "Layanan pengelolaan siswa belum tersedia.",
 };
 
 export default async function StudentsPage({ searchParams }: StudentPageProps) {
@@ -29,13 +48,22 @@ export default async function StudentsPage({ searchParams }: StudentPageProps) {
         <div>
           <p className="eyebrow">Administrator only</p>
           <h1>Student Management</h1>
-          <p className="muted">View the imported roster. Activation controls are intentionally not included yet.</p>
+          <p className="muted">Kelola roster, aktivasi, status akses, dan pemulihan kata sandi siswa.</p>
         </div>
         <div className="page-actions">
           <Link className="button button-primary" href="/admin/students/import">Import Students</Link>
           <Link className="button button-secondary" href="/admin">Back</Link>
         </div>
       </header>
+
+      {params.status && statusMessages[params.status] ? (
+        <p className="alert alert-success" role="status">{statusMessages[params.status]}</p>
+      ) : null}
+      {params.error ? (
+        <p className="alert alert-error" role="alert">
+          {errorMessages[params.error] ?? "Permintaan pengelolaan siswa tidak dapat diproses."}
+        </p>
+      ) : null}
 
       <section className="card">
         <form className="student-filters" method="get">
@@ -64,15 +92,59 @@ export default async function StudentsPage({ searchParams }: StudentPageProps) {
                   <td>{student.idType}</td>
                   <td>{student.fullName}</td>
                   <td>{student.className}</td>
-                  <td>{student.isActive ? "Active" : "Inactive"}</td>
+                  <td>
+                    <span className={`status-badge ${student.isActive ? "status-active" : "status-inactive"}`}>
+                      {student.isActive ? "Active" : "Inactive"}
+                    </span>
+                  </td>
                   <td>{student.isActivated ? "Activated" : student.hasActivationCode ? "Code prepared" : "Code not prepared"}</td>
                   <td>
-                    <Link
-                      className="button button-secondary button-small"
-                      href={`/admin/students/${encodeURIComponent(student.loginId)}/activation`}
-                    >
-                      Manage activation
-                    </Link>
+                    <div className="teacher-actions">
+                      <Link
+                        className="button button-secondary button-small"
+                        href={`/admin/students/${encodeURIComponent(student.loginId)}/activation`}
+                      >
+                        Aktivasi
+                      </Link>
+                      <form action={setStudentActiveAction}>
+                        <input name="login_id" type="hidden" value={student.loginId} />
+                        <input name="is_active" type="hidden" value={student.isActive ? "false" : "true"} />
+                        <button className="button button-secondary button-small" type="submit">
+                          {student.isActive ? "Nonaktifkan" : "Aktifkan"}
+                        </button>
+                      </form>
+                      {student.isActivated ? (
+                        <details className="reset-panel">
+                          <summary>Reset kata sandi</summary>
+                          <form action={resetStudentPasswordAction} className="form-stack compact-form">
+                            <input name="login_id" type="hidden" value={student.loginId} />
+                            <div className="field">
+                              <label htmlFor={`student-password-${student.loginId}`}>Kata sandi baru</label>
+                              <input
+                                id={`student-password-${student.loginId}`}
+                                name="new_password"
+                                type="password"
+                                autoComplete="new-password"
+                                required
+                              />
+                            </div>
+                            <div className="field">
+                              <label htmlFor={`student-confirm-${student.loginId}`}>Konfirmasi kata sandi</label>
+                              <input
+                                id={`student-confirm-${student.loginId}`}
+                                name="confirm_password"
+                                type="password"
+                                autoComplete="new-password"
+                                required
+                              />
+                            </div>
+                            <button className="button button-primary button-small" type="submit">
+                              Simpan kata sandi
+                            </button>
+                          </form>
+                        </details>
+                      ) : null}
+                    </div>
                   </td>
                 </tr>
               ))}

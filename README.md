@@ -1,30 +1,90 @@
-# SMAN 2 Cimalaka Attendance Foundation
+# SMAN 2 Cimalaka Attendance System
 
-This branch contains the first conventional Next.js and Supabase foundation for the PKM attendance system. It includes real Supabase Auth integration points, server-side route protection, database-backed roles, the initial PostgreSQL schema, and RLS policies.
+A Next.js and Supabase attendance application for Admin, Teacher, and Student users. The current implementation includes account administration, Student roster import and activation, database-controlled attendance, manual Teacher attendance, Student QR attendance, history, PDF export, configurable attendance times, and audited Admin corrections.
 
-It does **not** contain QR generation/scanning, attendance mutations, manual attendance, reports, email recovery, or production deployment.
-
-The original Vinext prototype is preserved locally at:
-
-- tag: `prototype-pre-next-foundation`
-- branch: `codex/prototype-pre-next-foundation`
+This repository contains the application and Supabase migrations. It does not claim a production deployment or define infrastructure outside the configuration described below.
 
 ## Architecture
 
 - Next.js App Router, React, and TypeScript
-- Plain CSS
 - Supabase Auth for passwords and sessions
-- Supabase PostgreSQL for application data
-- PostgreSQL RLS for final data authorization
-- No ORM, D1, Cloudflare Worker, Vite, or OpenAI platform authentication
+- Supabase PostgreSQL for application data and attendance transactions
+- PostgreSQL RLS, grants, constraints, and security-definer functions for authorization and mutation boundaries
+- Plain CSS for the interface
+- ExcelJS for server-side `.xlsx` roster parsing
+- `qrcode` for Admin-generated attendance QR images
+- PDFKit for server-generated attendance reports
 
-## Local setup
+The application does not use Vinext, Vite, Drizzle, D1, or Cloudflare Workers. Passwords are stored only by Supabase Auth, never in application tables.
+
+## Implemented capabilities
+
+### Authentication and account management
+
+- Users sign in with `login_id + password`; a deterministic synthetic email is generated only on the server for Supabase Auth.
+- Each Auth identity is linked to one `people` row through `auth_user_id`; the database role is authoritative.
+- Inactive or unlinked accounts cannot enter protected application routes.
+- Authenticated users can change their own password. There is no email recovery or forgot-password flow.
+- A development Admin can be provisioned through `npm run provision:dev-admin`.
+- Admin can create, list, deactivate/reactivate, and reset passwords for Teacher accounts. Each Teacher is a separate Supabase Auth identity; the current code does not synchronize one global password across all Teachers.
+- Admin can import Student roster data, prepare activation codes, deactivate/reactivate Students, and reset an activated Student's password.
+- Student activation is allowed only for an existing active, unclaimed Student row with a valid unexpired code. Activation creates and links the Supabase Auth user.
+
+### Student roster import
+
+- Admin uploads one `.xlsx` worksheet and explicitly maps ID, name, and class columns.
+- NIS or NISN is retained as text so verified leading zeroes are preserved.
+- The server validates and previews the workbook, then reparses it before a transactional import.
+- Maximum upload size is 5 MB with at most 2,000 meaningful Student rows.
+- Re-import updates roster fields without replacing Auth linkage, activation state, active status, passwords, or attendance history.
+- Missing workbook rows are not automatically deleted or deactivated.
+
+### Attendance
+
+The Attendance Core stores at most one record per Student and school date. Each record preserves Student ID, name, and class snapshots so historical reports are not changed by later roster edits. A missing record means unmarked, not automatically absent.
+
+Configured school rules are:
+
+- Timezone: `Asia/Jakarta`
+- Check-in before `06:30:00`: rejected
+- `06:30:00` through `06:45:00`, inclusive: on time
+- After `06:45:00`: late, while late attendance remains enabled
+- Monday-Thursday checkout: `15:00:00` or later
+- Friday checkout: `13:00:00` or later
+- Saturday and Sunday: normal attendance rejected
+- Absence categories: Sick, Permission, Absent, and Dispensation
+- Presence and absence are mutually exclusive
+
+Operational check-in/out timestamps and attendance dates come from PostgreSQL in the school timezone. Browser-supplied dates or clocks are not authoritative.
+
+Implemented workflows:
+
+- Teacher `/teacher`: select a class and record today's present/absence state or checkout using controlled PostgreSQL functions.
+- Admin `/admin/attendance-qr`: create/rotate or revoke the single active attendance QR. The default QR lifetime is 300 seconds from `attendance_settings`.
+- Student `/student/scan`: submit a current QR for their own check-in or checkout. PostgreSQL validates role, active account, token hash, expiry, schedule, and current attendance state.
+- Attendance history `/attendance/history`: Admin and Teacher can view permitted attendance across Students; a Student sees only their own records. Filters support a maximum 31-day range.
+- PDF export `/attendance/history/pdf`: generates the filtered report server-side, with a maximum of 5,000 rows.
+- Admin `/admin/attendance-settings`: edit entry time, late tolerance, Monday-Thursday checkout minimum, and Friday checkout minimum through `update_attendance_schedule`.
+- Admin `/admin/attendance-corrections`: find an existing record by date, class, and Student, then correct presence or absence through `correct_attendance`. A reason is mandatory and PostgreSQL stores immutable before/after audit data in `attendance_corrections`; there is no separate audit-browser page.
+
+## Role and authorization boundaries
+
+| Role | Current access |
+| --- | --- |
+| Anonymous | Login and Student activation forms only; no direct application-table access |
+| Admin | Account management, Student import/activation, QR management, attendance settings, historical correction, database-authorized audit access, all attendance history, and PDF export |
+| Teacher | Today's manual attendance and checkout, attendance history, and PDF export; no Admin routes or Admin RPCs |
+| Student | Own dashboard, QR check-in/out, own history, own PDF scope, and authenticated password change |
+
+Protected pages load the active `people` row linked to the Supabase session. Server actions verify the role again and never trust a browser-provided role. Authenticated browser clients cannot directly insert, update, or delete attendance, QR, settings, or correction-audit rows; mutations use the approved PostgreSQL functions. The Supabase service-role key is used only in trusted server-side account, import, activation, and test-support operations.
+
+## Development setup
 
 Requirements:
 
 - Node.js 22.13 or newer
 - npm
-- A development Supabase project when testing real login and RLS
+- A development Supabase project with the repository migrations applied in filename order
 
 Install and configure:
 
@@ -33,181 +93,73 @@ npm install
 Copy-Item .env.example .env.local
 ```
 
-Fill `.env.local`:
+Required application values in the ignored `.env.local`:
 
 ```dotenv
-NEXT_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=YOUR_PUBLISHABLE_KEY
-SUPABASE_SERVICE_ROLE_KEY=YOUR_SERVER_ONLY_SERVICE_ROLE_KEY
-AUTH_EMAIL_DOMAIN=auth.your-controlled-domain.example
-ACTIVATION_CODE_PEPPER=GENERATE_A_LONG_RANDOM_SERVER_SECRET
-ACTIVATION_CODE_TTL_HOURS=SET_THE_SCHOOL_APPROVED_VALIDITY_PERIOD
-DEV_ADMIN_LOGIN_ID=ADMIN
-DEV_ADMIN_FULL_NAME=Development Administrator
-DEV_ADMIN_PASSWORD=CHOOSE_A_LOCAL_DEVELOPMENT_PASSWORD
-DEV_ADMIN_NEW_PASSWORD=CHOOSE_A_DIFFERENT_LOCAL_PASSWORD_FOR_VERIFICATION
-DEV_TEACHER_LOGIN_ID=G001
-DEV_TEACHER_FULL_NAME=Development Teacher
-DEV_TEACHER_PASSWORD=CHOOSE_A_LOCAL_DEVELOPMENT_PASSWORD
-DEV_TEACHER_SELF_PASSWORD=CHOOSE_A_DIFFERENT_SELF_CHANGE_PASSWORD
-DEV_TEACHER_RESET_PASSWORD=CHOOSE_A_DIFFERENT_ADMIN_RESET_PASSWORD
-DEV_STUDENT_LOGIN_ID=ZSTDEV001
-DEV_STUDENT_FULL_NAME=Synthetic Development Student
-DEV_STUDENT_CLASS_NAME=SYN-DEV
-DEV_STUDENT_PASSWORD=CHOOSE_A_LOCAL_DEVELOPMENT_PASSWORD
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+AUTH_EMAIL_DOMAIN=auth.your-school.example
+ACTIVATION_CODE_PEPPER=
+ACTIVATION_CODE_TTL_HOURS=
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
-`SUPABASE_SERVICE_ROLE_KEY` is not used by normal login or password change. The development provisioning command uses it only in a trusted server-side process. Never prefix it with `NEXT_PUBLIC_` and never place it in client code.
+`SUPABASE_SERVICE_ROLE_KEY`, `AUTH_EMAIL_DOMAIN`, and `ACTIVATION_CODE_PEPPER` are server-only. Never prefix them with `NEXT_PUBLIC_`, expose them in Client Components, or commit real values. `NEXT_PUBLIC_APP_URL` must be the public HTTP(S) origin used to construct QR scan URLs.
 
-The values shown for `DEV_ADMIN_PASSWORD` and `DEV_ADMIN_NEW_PASSWORD` are placeholders. Choose both real development passwords only in the ignored `.env.local`; never commit or paste them into documentation, source code, logs, or chat. `DEV_ADMIN_NEW_PASSWORD` is used only to verify the authenticated password-change flow and can be removed afterward.
+Development Admin provisioning additionally requires:
 
-All `DEV_TEACHER_*PASSWORD` values are also placeholders. Real Teacher test credentials belong only in `.env.local` and are used for the one-account development integration flow.
-
-## Database migration
-
-The foundation and trusted-provisioning migrations are:
-
-```text
-supabase/migrations/20260820000000_foundation.sql
-supabase/migrations/20260824000000_service_role_people_provisioning.sql
-supabase/migrations/20260824010000_service_role_teacher_status.sql
-supabase/migrations/20260825000000_student_import.sql
-supabase/migrations/20260825010000_student_import_test_cleanup.sql
-supabase/migrations/20260825100000_student_activation.sql
-supabase/migrations/20260825110000_student_activation_auth_metadata_update.sql
+```dotenv
+DEV_ADMIN_LOGIN_ID=ADMIN
+DEV_ADMIN_FULL_NAME=Development Administrator
+DEV_ADMIN_PASSWORD=
 ```
 
-It creates exactly four application tables:
+The remaining `DEV_ADMIN_*`, `DEV_TEACHER_*`, and `DEV_STUDENT_*` values in `.env.example` are development integration-test fixtures. Use only synthetic accounts in a dedicated development Supabase project. For controlled account creation, public email sign-up should remain disabled in Supabase Auth.
 
-1. `people`
-2. `attendance_daily`
-3. `attendance_settings`
-4. `qr_tokens`
-
-The foundation migration also creates the approved enums, constraints, indexes, singleton attendance settings row, RLS policies, private role/person lookup helpers, and the narrow `mark_own_password_changed()` function. The provisioning follow-up grants only `SELECT` and `INSERT` on `people` to the trusted `service_role`. The Teacher-status follow-up adds only column-level `UPDATE (is_active)` for that role. The Student-import follow-up permits imported rows awaiting activation codes, removes Teacher-wide access to Student identity rows, and adds a service-role-only transactional roster function. A separate test-support migration permits only the service role to remove fresh, unclaimed, attendance-free rows with the integration test's reserved synthetic prefix; it cannot remove ordinary, claimed, or historical Student records.
-
-The Student-activation migrations add a service-role-only code-preparation function and a narrowly gated `auth.users` trigger. The trigger handles both Auth insertion and the Admin API's metadata-update lifecycle, links the new Auth UUID, sets `claimed_at`, and consumes the matching digest. A failed or racing link aborts the marked Auth operation, while the application retains a compensating orphan cleanup check. The temporary activation marker is removed from Auth metadata during linking. No migration grants anonymous writes or disables RLS.
-
-Apply it separately to a development Supabase project using the Supabase CLI migration workflow or the dashboard SQL editor. Admin provisioning does not apply or modify migrations.
-
-Before real testing, disable public email sign-up in the Supabase Auth settings. Accounts for this application are created only through controlled administrator/student-claim workflows.
-
-## Synthetic Auth email mapping
-
-Users only see `ID / Username` and `Password`.
-
-The server applies this exact mapping:
-
-1. Trim the visible ID.
-2. Convert it to uppercase.
-3. Require 1–64 characters from `A-Z`, `0-9`, `.`, `_`, or `-`.
-4. Convert the normalized ID to lowercase for the email local part.
-5. Append the configured `AUTH_EMAIL_DOMAIN`.
-
-Example:
-
-```text
-Visible ID:        G001
-Normalized ID:     G001
-Internal email:    g001@auth.your-controlled-domain.example
-```
-
-The synthetic email is never displayed in the UI and is not used as an authorization role. After Supabase authenticates the password, the application loads the linked `people` row using the Auth user UUID. The database `role` is the only source for application authorization.
-
-Passwords and password hashes are never stored in application tables.
-
-## Initial administrator
-
-Until account-management screens are implemented, provision exactly one development Admin using the trusted local command:
-
-1. Confirm the foundation migration is already applied to the linked development project.
-2. Put `DEV_ADMIN_LOGIN_ID`, `DEV_ADMIN_FULL_NAME`, and `DEV_ADMIN_PASSWORD` in `.env.local`.
-3. Run:
+Apply all migrations under `supabase/migrations/` to the development project before provisioning accounts. Then run:
 
 ```powershell
 npm run provision:dev-admin
+npm run dev
 ```
 
-The command normalizes the login ID, creates one confirmed synthetic-email Auth identity, and inserts the linked active `admin` row. Re-running it with the same correctly linked account is non-destructive. It refuses conflicting Admin, login-ID, Auth-email, inactive, or inconsistent-link states. If the `people` insert fails after Auth creation, it attempts to remove the newly created Auth identity.
+Open `http://localhost:3000/login` and sign in with the visible development Admin login ID and password. Synthetic email addresses are internal and are not entered by users.
 
-Start the local application with `npm run dev`, open `/login`, and sign in using the visible login ID and password. The synthetic email is never entered or displayed. The development password remains managed only by Supabase Auth.
+## Migrations
 
-## Teacher management
+Current migrations, in order:
 
-An authenticated Admin manages Teacher accounts at `/admin/teachers`. The page supports:
+```text
+20260820000000_foundation.sql
+20260824000000_service_role_people_provisioning.sql
+20260824010000_service_role_teacher_status.sql
+20260825000000_student_import.sql
+20260825010000_student_import_test_cleanup.sql
+20260825100000_student_activation.sql
+20260825110000_student_activation_auth_metadata_update.sql
+20260825200000_attendance_core.sql
+20260825210000_teacher_attendance_roster.sql
+20260825220000_qr_token_attendance_type.sql
+20260825221000_student_qr_attendance.sql
+```
 
-- creating one Auth user and linked `people` row with `role = teacher`
-- listing Login ID, full name, active status, and creation date
-- activating or deactivating application access through `people.is_active`
-- setting a new Teacher password through the server-only Supabase Admin API
-
-The UI never displays the synthetic email, Auth UUID, service-role credential, or any password. Teachers can still change only their own password through `/change-password`; no email recovery flow exists.
-
-## Student roster import
-
-An authenticated Admin manages imported Student records at `/admin/students` and uploads one `.xlsx` workbook at `/admin/students/import`. The workflow inspects arbitrary headers, requires explicit column mapping and NIS/NISN selection, validates and previews without database writes, then reparses the same workbook before one transactional import.
-
-Limits are 5 MB, one worksheet, and 2,000 meaningful Student rows. IDs remain text; plain numeric IDs without explicit zero-padding are rejected. New Students remain unlinked to Supabase Auth with no activation code. Re-import updates only name and class while preserving identity, active status, Auth linkage, activation state, and passwords. Missing Students are reported but never deleted or deactivated automatically.
-
-Excel parsing uses the exactly pinned `exceljs` dependency only from server-reached code. Uploaded files are not permanently stored.
-
-## Student account activation
-
-An Admin prepares a code from the separate activation page linked from `/admin/students`. The random plaintext code is returned only in that authenticated response and disappears when the page reloads. PostgreSQL stores only its HMAC-SHA256 digest. Regeneration replaces the digest and immediately invalidates the previous code.
-
-The code carries a digest-protected expiration time. `ACTIVATION_CODE_TTL_HOURS` is intentionally required server-side so the application does not invent a school distribution policy. The code pepper, duration, plaintext codes, and development password must never enter client code, documentation values, logs, or Git.
-
-An eligible Student visits `/activate` and supplies Student ID, activation code, and a new password. The password must contain at least 10 characters, one letter, and one number, and must differ from the Student ID. Supabase Auth is the only password store. Successful activation creates one confirmed synthetic-email Auth identity, atomically links it to the existing Student row, consumes the code, starts the Student session, and redirects to `/student`.
-
-The minimal `/student` page displays only the authenticated Student's name, ID, class, and account status. Attendance remains outside this milestone. There is no Student email recovery or self-reset flow.
+Test-cleanup functions are restricted to reserved synthetic fixtures and do not grant broad service-role access to attendance tables.
 
 ## Commands
 
 ```powershell
-npm run dev        # local Next.js development server
-npm run typecheck  # TypeScript validation
-npm run lint       # ESLint
-npm test           # local foundation unit/static tests
-npm run provision:dev-admin # create/check the single linked development Admin
-npm run test:admin-integration # real Admin Auth/link/RLS test; reads ignored .env.local
-npm run test:teacher-integration # final-state Teacher Auth/link/RLS test; uses DEV_TEACHER_RESET_PASSWORD
-npm run test:student-import-integration # live roster transaction and privacy test; creates no Auth users
-npm run test:student-activation-integration # one synthetic Student Auth/link/RLS/routing test
-npm run test:integration # real Auth/RLS tests; requires .env.test values loaded
-npm run build      # production Next.js build
-npm run check      # run all checks above
+npm run dev
+npm run typecheck
+npm run lint
+npm test
+npm run build
+npm run check
+npm run provision:dev-admin
 ```
 
-## Test boundary
+Dedicated live tests are exposed as `test:*integration` scripts in `package.json`, including account, import, activation, Student administration, Attendance Core, Teacher attendance, Student QR, reporting, and Admin attendance operations. They require the matching private development fixture variables and may start from or temporarily create synthetic data. Use a dedicated development Supabase project, not production data.
 
-The local test suite verifies:
+## Current deployment boundary
 
-- deterministic ID-to-email mapping
-- valid and invalid login orchestration with test doubles
-- rejection of unlinked Auth users
-- application role decisions
-- cross-student access denial logic
-- activation-code digest and claim eligibility rules
-- required migration tables, RLS enablement, and critical constraints
-- development Admin provisioning safeguards and server-only boundaries
-- synthetic `.xlsx` parsing, column mapping, leading-zero preservation, and roster-import safeguards
-- activation-code randomness, digest verification, expiration, password policy, one-time linkage, and server-only boundaries
-
-Offline tests do not prove Supabase Auth or PostgreSQL RLS against a live database. Before calling the system production-ready, apply migrations to a dedicated development Supabase project and run the dedicated integration commands. The activation integration creates at most one persistent synthetic Student Auth fixture and one temporary unclaimed privacy row; the privacy row is removed afterward.
-
-Copy `.env.test.example` to a private environment file, provide development-only test accounts, load those variables into the shell, and run `npm run test:integration`. The integration test is automatically skipped when its required variables are absent. It creates and removes one future-dated attendance fixture through the server-only service-role client.
-
-## Current security boundaries
-
-- Protected pages verify the Supabase JWT and load the linked active `people` row.
-- Role data is never accepted from the browser.
-- Anonymous roles have no table grants or RLS policies.
-- Students can read only their own people/attendance rows under RLS.
-- Teachers cannot query unrestricted Student identity rows; a narrow attendance directory will be designed with the Attendance milestone.
-- Only admins receive the attendance-settings update policy.
-- Direct attendance and QR table writes are not granted to authenticated users.
-- Activation-code digests and QR token hashes are excluded from normal client column grants.
-- The service-role key has no browser import or endpoint in this milestone.
-- Public activation returns generic account/code failures and never grants anonymous table access.
-- Activation codes are HMAC digests at rest, expire, and are consumed by the atomic Auth-link trigger.
+The repository is configured for local Next.js operation and connection to a Supabase project. Hosting provider settings, production domains, production credentials, backup policy, monitoring, and school deployment procedures are not defined here and must be confirmed separately before production use.
