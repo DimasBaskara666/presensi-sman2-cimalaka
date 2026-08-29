@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
 import test from "node:test";
 import ExcelJS from "exceljs";
 import {
@@ -180,7 +179,6 @@ test("rejects malformed workbook bytes", async () => {
 });
 
 test("Student import remains Admin-only, server-only, and Auth-link preserving", async () => {
-  const root = fileURLToPath(new URL("../", import.meta.url));
   const actions = await readFile(
     new URL("../app/(protected)/admin/students/import/actions.ts", import.meta.url),
     "utf8",
@@ -194,7 +192,6 @@ test("Student import remains Admin-only, server-only, and Auth-link preserving",
     new URL("../supabase/migrations/20260825000000_student_import.sql", import.meta.url),
     "utf8",
   );
-  assert.ok(root.endsWith("PKM\\") || root.endsWith("PKM/"));
   assert.equal((actions.match(/requireCurrentPerson\(\{ allowedRoles: \["admin"\] \}\)/g) ?? []).length, 3);
   assert.match(service, /^import "server-only";/);
   assert.doesNotMatch(workflow, /exceljs|SUPABASE_SERVICE_ROLE_KEY|auth_user_id|claim_code_digest/);
