@@ -1,20 +1,15 @@
 "use client";
 
 import Image from "next/image";
-import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import {
-  generateAttendanceQrAction,
-  revokeAttendanceQrAction,
-  type AdminQrActionResult,
+  refreshAttendanceQrSessionAction,
+  startAttendanceQrSessionAction,
+  stopAttendanceQrSessionAction,
+  type AttendanceQrSessionActionResult,
 } from "./actions";
 
-type ActiveQrMetadata = {
-  createdAt: string;
-  expiresAt: string;
-} | null;
-
-function expiryLabel(expiresAt: string): string {
+function timestampLabel(timestamp: string): string {
   return new Intl.DateTimeFormat("id-ID", {
     timeZone: "Asia/Jakarta",
     day: "numeric",
@@ -24,46 +19,62 @@ function expiryLabel(expiresAt: string): string {
     minute: "2-digit",
     second: "2-digit",
     hourCycle: "h23",
-  }).format(new Date(expiresAt));
+  }).format(new Date(timestamp));
 }
 
-export function AdminQrManager({ initialActive }: { initialActive: ActiveQrMetadata }) {
-  const router = useRouter();
-  const [active, setActive] = useState(initialActive);
-  const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
-  const [feedback, setFeedback] = useState<AdminQrActionResult | null>(null);
+export function SharedQrManager({
+  initialState,
+}: {
+  initialState: AttendanceQrSessionActionResult;
+}) {
+  const [session, setSession] = useState(initialState);
+  const [feedback, setFeedback] = useState<{ ok: boolean; message: string } | null>(
+    initialState.message ? { ok: initialState.ok, message: initialState.message } : null,
+  );
   const [pending, startTransition] = useTransition();
 
-  function generate() {
+  useEffect(() => {
+    const serverRemaining = session.active && session.expiresAt && session.serverNow
+      ? Date.parse(session.expiresAt) - Date.parse(session.serverNow) + 250
+      : 10_000;
+    const delay = Math.max(1_000, Math.min(10_000, serverRemaining));
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const result = await refreshAttendanceQrSessionAction();
+          if (result.ok) setSession(result);
+          if (!result.ok) setFeedback({ ok: false, message: result.message });
+          else if (!result.active) setFeedback(null);
+        } catch {
+          setFeedback({ ok: false, message: "Koneksi terputus. Tampilan QR akan mencoba lagi." });
+        }
+      })();
+    }, delay);
+    return () => window.clearTimeout(timer);
+  }, [session.active, session.expiresAt, session.serverNow]);
+
+  function startSession() {
     startTransition(async () => {
       setFeedback(null);
       try {
-        const result = await generateAttendanceQrAction();
-        setFeedback(result);
-        if (result.ok && result.imageDataUrl && result.expiresAt) {
-          setImageDataUrl(result.imageDataUrl);
-          setActive({ createdAt: "", expiresAt: result.expiresAt });
-          router.refresh();
-        }
+        const result = await startAttendanceQrSessionAction();
+        if (result.ok) setSession(result);
+        setFeedback({ ok: result.ok, message: result.message });
       } catch {
-        setFeedback({ ok: false, message: "Koneksi terputus. Coba buat QR kembali.", imageDataUrl: null, expiresAt: null });
+        setFeedback({ ok: false, message: "Koneksi terputus. Sesi QR belum dimulai." });
       }
     });
   }
 
-  function revoke() {
+  function stopSession() {
     startTransition(async () => {
       setFeedback(null);
       try {
-        const result = await revokeAttendanceQrAction();
-        setFeedback(result);
-        if (result.ok) {
-          setImageDataUrl(null);
-          setActive(null);
-          router.refresh();
-        }
+        const result = await stopAttendanceQrSessionAction();
+        if (result.ok) setSession(result);
+        setFeedback({ ok: result.ok, message: result.message });
       } catch {
-        setFeedback({ ok: false, message: "Koneksi terputus. QR belum dicabut.", imageDataUrl: null, expiresAt: null });
+        setFeedback({ ok: false, message: "Koneksi terputus. Sesi QR belum dihentikan." });
       }
     });
   }
@@ -72,30 +83,31 @@ export function AdminQrManager({ initialActive }: { initialActive: ActiveQrMetad
     <div className="admin-qr-layout">
       <section className="card admin-qr-controls" aria-labelledby="qr-controls-title">
         <div>
-          <p className="eyebrow">Kontrol QR</p>
-          <h2 id="qr-controls-title">QR presensi aktif</h2>
+          <p className="eyebrow">Kontrol sesi bersama</p>
+          <h2 id="qr-controls-title">QR presensi sekolah</h2>
         </div>
 
-        {active ? (
+        {session.active && session.createdAt && session.expiresAt ? (
           <dl className="admin-qr-metadata">
-            <div><dt>Status</dt><dd>QR terakhir</dd></div>
-            <div><dt>Berlaku sampai</dt><dd>{expiryLabel(active.expiresAt)} WIB</dd></div>
+            <div><dt>Status</dt><dd>Sesi aktif</dd></div>
+            <div><dt>QR dibuat</dt><dd>{timestampLabel(session.createdAt)} WIB</dd></div>
+            <div><dt>Berganti pada</dt><dd>{timestampLabel(session.expiresAt)} WIB</dd></div>
           </dl>
         ) : (
-          <p className="empty-state">Belum ada QR aktif.</p>
+          <p className="empty-state">Sesi QR sedang berhenti. Tidak ada QR yang valid.</p>
         )}
 
         <div className="page-actions admin-qr-actions">
-          <button className="button button-primary" type="button" disabled={pending} onClick={generate}>
-            {pending ? "Memproses…" : active ? "Putar QR Baru" : "Buat QR Aktif"}
+          <button className="button button-primary" type="button" disabled={pending || session.active} onClick={startSession}>
+            {pending && !session.active ? "Memulai…" : "Mulai Sesi QR"}
           </button>
-          <button className="button button-secondary" type="button" disabled={pending || !active} onClick={revoke}>
-            Cabut QR
+          <button className="button button-secondary" type="button" disabled={pending || !session.active} onClick={stopSession}>
+            {pending && session.active ? "Memproses…" : "Hentikan Sesi"}
           </button>
         </div>
 
         <p className="muted admin-qr-security-note">
-          Membuat QR baru otomatis mencabut QR sebelumnya. Gambar hanya dapat ditampilkan pada sesi pembuatan ini karena sistem tidak menyimpan token aslinya.
+          PostgreSQL menentukan QR aktif dan menggantinya setiap lima menit. Semua tampilan Admin dan Guru menerima QR sekolah yang sama; QR sebelumnya langsung tidak berlaku.
         </p>
         {feedback ? (
           <p className={`alert ${feedback.ok ? "alert-success" : "alert-error"}`} role={feedback.ok ? "status" : "alert"}>
@@ -107,24 +119,24 @@ export function AdminQrManager({ initialActive }: { initialActive: ActiveQrMetad
       <section className="card admin-qr-display" aria-labelledby="qr-display-title">
         <div className="admin-qr-display-heading">
           <div>
-            <p className="eyebrow">Layar / cetak sementara</p>
+            <p className="eyebrow">Layar QR bersama</p>
             <h2 id="qr-display-title">Pindai QR Presensi</h2>
           </div>
-          {imageDataUrl ? (
+          {session.imageDataUrl ? (
             <button className="button button-secondary print-hidden" type="button" onClick={() => window.print()}>Cetak</button>
           ) : null}
         </div>
 
-        {imageDataUrl && active ? (
+        {session.active && session.imageDataUrl && session.expiresAt ? (
           <div className="admin-qr-image-panel">
-            <Image src={imageDataUrl} alt="QR presensi siswa aktif" width={1024} height={1024} unoptimized priority />
+            <Image src={session.imageDataUrl} alt="QR presensi sekolah yang sedang aktif" width={1024} height={1024} unoptimized priority />
             <p>Pindai menggunakan kamera ponsel atau menu Scan QR pada akun siswa.</p>
-            <strong>Berlaku sampai {expiryLabel(active.expiresAt)} WIB</strong>
+            <strong>Berganti otomatis pada {timestampLabel(session.expiresAt)} WIB</strong>
           </div>
         ) : (
           <div className="admin-qr-placeholder">
             <span aria-hidden="true">QR</span>
-            <p>Buat atau putar QR untuk menampilkan gambar yang dapat dipindai.</p>
+            <p>Mulai sesi untuk menampilkan QR presensi sekolah.</p>
           </div>
         )}
       </section>

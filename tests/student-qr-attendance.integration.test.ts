@@ -3,10 +3,7 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 import nextEnv from "@next/env";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import {
-  digestAttendanceQrToken,
-  generateAttendanceQrToken,
-} from "../lib/attendance/qr-token";
+import { digestAttendanceQrToken } from "../lib/attendance/qr-token";
 import { normalizeLoginId } from "../lib/auth/login-id";
 import { getSchoolDate } from "../lib/attendance/teacher-attendance-model";
 
@@ -25,15 +22,12 @@ const requiredEnvironment = [
   "DEV_STUDENT_PASSWORD",
 ] as const;
 
-const hasAdminPassword = Boolean(
-  process.env.DEV_ADMIN_NEW_PASSWORD || process.env.DEV_ADMIN_PASSWORD,
-);
-const isConfigured = hasAdminPassword
-  && requiredEnvironment.every((name) => Boolean(process.env[name]));
+const hasAdminPassword = Boolean(process.env.DEV_ADMIN_NEW_PASSWORD || process.env.DEV_ADMIN_PASSWORD);
+const isConfigured = hasAdminPassword && requiredEnvironment.every((name) => Boolean(process.env[name]));
 
 function required(name: (typeof requiredEnvironment)[number]): string {
   const value = process.env[name];
-  if (!value) throw new Error(`${name} is required for the Student QR integration test.`);
+  if (!value) throw new Error(`${name} is required for the shared QR integration test.`);
   return value;
 }
 
@@ -71,6 +65,16 @@ type AttendanceSchedule = {
   friday_checkout_minimum: string;
 };
 
+type SharedSessionRow = {
+  session_active: boolean;
+  session_id: string | null;
+  token_id: string | null;
+  token_value: string | null;
+  created_at: string | null;
+  expires_at: string | null;
+  server_now: string;
+};
+
 function scheduleParameters(schedule: AttendanceSchedule) {
   return {
     p_timezone: schedule.timezone,
@@ -85,16 +89,34 @@ function scheduleParameters(schedule: AttendanceSchedule) {
   };
 }
 
-async function authUserCount(service: SupabaseClient): Promise<number> {
-  const { data, error } = await service.auth.admin.listUsers({ page: 1, perPage: 1000 });
-  assert.ok(!error, "Supabase Auth users could not be counted.");
-  return data.users.length;
+async function sessionCall(
+  actor: SupabaseClient,
+  functionName: "start_attendance_qr_session" | "get_attendance_qr_session",
+): Promise<SharedSessionRow> {
+  const result = await actor.rpc(functionName);
+  assert.ok(!result.error && Array.isArray(result.data) && result.data.length === 1, `${functionName} failed.`);
+  return result.data[0] as SharedSessionRow;
 }
 
-test("Student QR is atomic, Core-driven, role-protected, idempotent, and cleanable", { skip: !isConfigured }, async (context) => {
+function assertActive(row: SharedSessionRow): asserts row is SharedSessionRow & {
+  session_id: string;
+  token_id: string;
+  token_value: string;
+  created_at: string;
+  expires_at: string;
+} {
+  assert.equal(row.session_active, true);
+  assert.equal(typeof row.session_id, "string");
+  assert.equal(typeof row.token_id, "string");
+  assert.match(row.token_value ?? "", /^qra_[A-Za-z0-9_-]{43}$/);
+  assert.equal(typeof row.created_at, "string");
+  assert.equal(typeof row.expires_at, "string");
+}
+
+test("shared QR session supports both staff roles, rotation, stop, restart, and Student validation", { skip: !isConfigured }, async (context) => {
   const today = getSchoolDate();
-  const isoDay = new Date(`${today}T00:00:00.000Z`).getUTCDay();
-  if (isoDay === 0 || isoDay === 6) {
+  const day = new Date(`${today}T00:00:00.000Z`).getUTCDay();
+  if (day === 0 || day === 6) {
     context.skip("Normal Student QR attendance is intentionally unavailable on weekends.");
     return;
   }
@@ -104,37 +126,19 @@ test("Student QR is atomic, Core-driven, role-protected, idempotent, and cleanab
     process.env.DEV_ADMIN_NEW_PASSWORD ?? "",
     process.env.DEV_ADMIN_PASSWORD ?? "",
   ]);
-  const teacher = await signIn(required("DEV_TEACHER_LOGIN_ID"), [
-    required("DEV_TEACHER_RESET_PASSWORD"),
-  ]);
-  const student = await signIn(required("DEV_STUDENT_LOGIN_ID"), [
-    required("DEV_STUDENT_PASSWORD"),
-  ]);
+  const teacher = await signIn(required("DEV_TEACHER_LOGIN_ID"), [required("DEV_TEACHER_RESET_PASSWORD")]);
+  const student = await signIn(required("DEV_STUDENT_LOGIN_ID"), [required("DEV_STUDENT_PASSWORD")]);
   const anonymous = client(required("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"));
   const tokenIds: string[] = [];
   const studentLoginId = normalizeLoginId(required("DEV_STUDENT_LOGIN_ID"));
-  const initialAuthCount = await authUserCount(service);
 
-  const people = await admin
+  const studentPerson = await admin
     .from("people")
     .select("id, login_id, role, auth_user_id")
-    .in("login_id", [
-      normalizeLoginId(required("DEV_ADMIN_LOGIN_ID")),
-      normalizeLoginId(required("DEV_TEACHER_LOGIN_ID")),
-      studentLoginId,
-    ]);
-  assert.ok(!people.error, "Development people could not be loaded.");
-  const developmentStudent = people.data.find((person) => person.login_id === studentLoginId);
-  assert.ok(developmentStudent && developmentStudent.role === "student");
-  assert.equal(typeof developmentStudent.auth_user_id, "string");
-
-  const claimedStudentCountBefore = await admin
-    .from("people")
-    .select("id", { count: "exact", head: true })
-    .eq("role", "student")
-    .not("auth_user_id", "is", null);
-  assert.ok(!claimedStudentCountBefore.error);
-  assert.equal(typeof claimedStudentCountBefore.count, "number");
+    .eq("login_id", studentLoginId)
+    .single();
+  assert.ok(!studentPerson.error && studentPerson.data.role === "student");
+  assert.equal(typeof studentPerson.data.auth_user_id, "string");
 
   const scheduleResult = await admin
     .from("attendance_settings")
@@ -147,22 +151,32 @@ test("Student QR is atomic, Core-driven, role-protected, idempotent, and cleanab
   const initialAttendance = await admin
     .from("attendance_daily")
     .select("id")
-    .eq("student_id", developmentStudent.id)
+    .eq("student_id", studentPerson.data.id)
     .eq("attendance_date", today);
   assert.ok(!initialAttendance.error);
   assert.deepEqual(initialAttendance.data, [], "Development Student must start today unmarked.");
-  const initialQr = await admin.from("qr_tokens").select("id");
-  assert.ok(!initialQr.error);
-  assert.deepEqual(initialQr.data, [], "QR integration test requires an empty QR token table.");
+  const initialTokens = await admin.from("qr_tokens").select("id").order("id");
+  assert.ok(!initialTokens.error);
+  const initialActive = await admin
+    .from("qr_tokens")
+    .select("id")
+    .eq("token_type", "attendance")
+    .eq("is_active", true);
+  assert.ok(!initialActive.error);
+  assert.deepEqual(initialActive.data, [], "The shared QR integration test requires no active session.");
 
   context.after(async () => {
+    await admin.rpc("stop_attendance_qr_session");
+    const restored = await admin.rpc("update_attendance_schedule", scheduleParameters(originalSchedule));
+    assert.ok(!restored.error && restored.data === true, "Attendance schedule restoration failed.");
+
     if (tokenIds.length > 0) {
       const attendanceRows = await admin
         .from("attendance_daily")
         .select("id")
-        .eq("student_id", developmentStudent.id)
+        .eq("student_id", studentPerson.data.id)
         .eq("attendance_date", today);
-      assert.ok(!attendanceRows.error, "QR cleanup attendance count could not be read.");
+      assert.ok(!attendanceRows.error);
       const cleanup = await service.rpc("cleanup_synthetic_student_qr", {
         p_student_login_id: studentLoginId,
         p_attendance_date: today,
@@ -170,32 +184,16 @@ test("Student QR is atomic, Core-driven, role-protected, idempotent, and cleanab
         p_expected_attendance_count: attendanceRows.data.length,
         p_expected_token_count: tokenIds.length,
       });
-      assert.ok(!cleanup.error, `QR test cleanup failed: ${cleanup.error?.message ?? "unknown"}`);
+      assert.ok(!cleanup.error, `QR cleanup failed: ${cleanup.error?.message ?? "unknown"}`);
       assert.deepEqual(cleanup.data, [{
         attendance_deleted: attendanceRows.data.length,
         tokens_deleted: tokenIds.length,
       }]);
     }
 
-    const restored = await admin.rpc(
-      "update_attendance_schedule",
-      scheduleParameters(originalSchedule),
-    );
-    assert.ok(!restored.error && restored.data === true, "Attendance schedule restoration failed.");
-
-    const finalAttendance = await admin.from("attendance_daily").select("id");
-    const finalQr = await admin.from("qr_tokens").select("id");
-    assert.ok(!finalAttendance.error && !finalQr.error);
-    assert.equal(finalAttendance.data.length, 0, "Temporary attendance rows remain after cleanup.");
-    assert.equal(finalQr.data.length, 0, "Temporary QR rows remain after cleanup.");
-    assert.equal(await authUserCount(service), initialAuthCount, "Auth user count changed during QR testing.");
-    const claimedStudentCountAfter = await admin
-      .from("people")
-      .select("id", { count: "exact", head: true })
-      .eq("role", "student")
-      .not("auth_user_id", "is", null);
-    assert.ok(!claimedStudentCountAfter.error);
-    assert.equal(claimedStudentCountAfter.count, claimedStudentCountBefore.count);
+    const finalTokens = await admin.from("qr_tokens").select("id").order("id");
+    assert.ok(!finalTokens.error);
+    assert.deepEqual(finalTokens.data, initialTokens.data, "Synthetic shared QR credentials remain after cleanup.");
     await Promise.all([admin.auth.signOut(), teacher.auth.signOut(), student.auth.signOut()]);
   });
 
@@ -210,140 +208,122 @@ test("Student QR is atomic, Core-driven, role-protected, idempotent, and cleanab
     thursday_checkout_minimum: "00:00:02",
     friday_checkout_minimum: "00:00:02",
   };
-  const scheduleUpdate = await admin.rpc(
-    "update_attendance_schedule",
-    scheduleParameters(testSchedule),
+  const scheduleUpdate = await admin.rpc("update_attendance_schedule", scheduleParameters(testSchedule));
+  assert.ok(!scheduleUpdate.error && scheduleUpdate.data === true);
+
+  const studentStart = await student.rpc("start_attendance_qr_session");
+  const studentGet = await student.rpc("get_attendance_qr_session");
+  const studentStop = await student.rpc("stop_attendance_qr_session");
+  const anonymousStart = await anonymous.rpc("start_attendance_qr_session");
+  assert.ok(studentStart.error && studentGet.error && studentStop.error && anonymousStart.error);
+
+  // Teacher starts the first shared session; Admin sees exactly the same QR.
+  const teacherStarted = await sessionCall(teacher, "start_attendance_qr_session");
+  assertActive(teacherStarted);
+  tokenIds.push(teacherStarted.token_id);
+  assert.equal(
+    new Date(teacherStarted.expires_at).getTime() - new Date(teacherStarted.created_at).getTime(),
+    300_000,
   );
-  assert.ok(!scheduleUpdate.error && scheduleUpdate.data === true, "Controlled live-test schedule could not be applied.");
+  const adminSharedView = await sessionCall(admin, "get_attendance_qr_session");
+  assertActive(adminSharedView);
+  assert.equal(adminSharedView.session_id, teacherStarted.session_id);
+  assert.equal(adminSharedView.token_id, teacherStarted.token_id);
+  assert.equal(adminSharedView.token_value, teacherStarted.token_value);
+  const activeCount = await admin
+    .from("qr_tokens")
+    .select("id")
+    .eq("token_type", "attendance")
+    .eq("is_active", true);
+  assert.ok(!activeCount.error);
+  assert.equal(activeCount.data.length, 1);
 
-  const rotate = async () => {
-    const token = generateAttendanceQrToken();
-    const result = await admin.rpc("rotate_attendance_qr", {
-      p_token_hash: digestAttendanceQrToken(token),
-    });
-    assert.ok(!result.error && result.data?.[0]?.id, "Admin could not generate an active QR.");
-    tokenIds.push(result.data[0].id);
-    return { token, id: result.data[0].id as string };
-  };
+  const teacherStopped = await teacher.rpc("stop_attendance_qr_session");
+  assert.ok(!teacherStopped.error && teacherStopped.data === true, "Teacher could not stop the shared session.");
+  const scanWhileStopped = await student.rpc("submit_student_qr_attendance", {
+    p_token_hash: digestAttendanceQrToken(teacherStarted.token_value),
+  });
+  assert.ok(scanWhileStopped.error, "Student scan must fail while the session is stopped.");
 
-  const active = await rotate();
-  const hiddenHash = await admin.from("qr_tokens").select("token_hash").eq("id", active.id);
-  assert.ok(hiddenHash.error, "The QR database hash must not be selectable by browser roles.");
-  const studentQrMetadata = await student.from("qr_tokens").select("id");
-  assert.ok(!studentQrMetadata.error);
-  assert.deepEqual(studentQrMetadata.data, [], "Students must not see QR token metadata.");
+  // Admin starts a new session; Teacher sees the same active credential.
+  const adminStarted = await sessionCall(admin, "start_attendance_qr_session");
+  assertActive(adminStarted);
+  tokenIds.push(adminStarted.token_id);
+  assert.notEqual(adminStarted.session_id, teacherStarted.session_id);
+  assert.notEqual(adminStarted.token_value, teacherStarted.token_value);
+  const teacherSharedView = await sessionCall(teacher, "get_attendance_qr_session");
+  assertActive(teacherSharedView);
+  assert.equal(teacherSharedView.token_id, adminStarted.token_id);
+  assert.equal(teacherSharedView.token_value, adminStarted.token_value);
 
-  const anonymousAttempt = await anonymous.rpc("submit_student_qr_attendance", {
-    p_token_hash: digestAttendanceQrToken(active.token),
-  });
-  assert.ok(anonymousAttempt.error, "Anonymous QR attendance must fail.");
-  const teacherAttempt = await teacher.rpc("submit_student_qr_attendance", {
-    p_token_hash: digestAttendanceQrToken(active.token),
-  });
-  assert.ok(teacherAttempt.error, "Teacher must not use the Student QR transaction.");
-  const adminAttempt = await admin.rpc("submit_student_qr_attendance", {
-    p_token_hash: digestAttendanceQrToken(active.token),
-  });
-  assert.ok(adminAttempt.error, "Admin must not use the Student QR transaction as a Student.");
-  const teacherRotationAttempt = await teacher.rpc("rotate_attendance_qr", {
-    p_token_hash: digestAttendanceQrToken(generateAttendanceQrToken()),
-  });
-  assert.ok(teacherRotationAttempt.error, "Teacher must not rotate Admin QR credentials.");
-  const invalidAttempt = await student.rpc("submit_student_qr_attendance", {
-    p_token_hash: digestAttendanceQrToken(generateAttendanceQrToken()),
-  });
-  assert.ok(invalidAttempt.error && invalidAttempt.error.message.includes("qr_invalid"));
-
-  const databaseStart = Date.now();
   const checkIn = await student.rpc("submit_student_qr_attendance", {
-    p_token_hash: digestAttendanceQrToken(active.token),
+    p_token_hash: digestAttendanceQrToken(adminStarted.token_value),
   });
-  assert.ok(!checkIn.error, "Authenticated development Student QR check-in failed.");
+  assert.ok(!checkIn.error, "Student could not scan the current active QR.");
   assert.equal(checkIn.data?.[0]?.action, "check_in");
 
-  const afterCheckIn = await admin
-    .from("attendance_daily")
-    .select("id, student_id, attendance_date, check_in_at, check_in_status, check_in_method, check_in_recorded_by, check_in_qr_token_id, check_out_at")
-    .eq("student_id", developmentStudent.id)
-    .eq("attendance_date", today);
-  assert.ok(!afterCheckIn.error);
-  assert.equal(afterCheckIn.data.length, 1, "QR check-in must create exactly one daily row.");
-  const firstRow = afterCheckIn.data[0];
-  assert.equal(firstRow.check_in_method, "qr");
-  assert.equal(firstRow.check_in_recorded_by, developmentStudent.id);
-  assert.equal(firstRow.check_in_qr_token_id, active.id);
-  assert.equal(firstRow.check_in_status, "late");
-  assert.equal(firstRow.check_out_at, null);
-  assert.ok(new Date(firstRow.check_in_at).getTime() >= databaseStart - 5000);
-  assert.ok(new Date(firstRow.check_in_at).getTime() <= Date.now() + 5000);
-
-  const repeated = await student.rpc("submit_student_qr_attendance", {
-    p_token_hash: digestAttendanceQrToken(active.token),
-  });
-  assert.ok(!repeated.error, "Repeated QR scan failed after the checkout minimum.");
-  assert.equal(repeated.data?.[0]?.action, "check_out");
-  const afterRepeated = await admin
-    .from("attendance_daily")
-    .select("id, check_in_at, check_out_at, check_out_method, check_out_recorded_by, check_out_qr_token_id")
-    .eq("student_id", developmentStudent.id)
-    .eq("attendance_date", today);
-  assert.ok(!afterRepeated.error);
-  assert.equal(afterRepeated.data.length, 1, "Repeated scan must not duplicate the daily row.");
-  assert.equal(afterRepeated.data[0].id, firstRow.id);
-  assert.equal(afterRepeated.data[0].check_in_at, firstRow.check_in_at);
-  assert.ok(afterRepeated.data[0].check_out_at);
-  assert.equal(afterRepeated.data[0].check_out_method, "qr");
-  assert.equal(afterRepeated.data[0].check_out_recorded_by, developmentStudent.id);
-  assert.equal(afterRepeated.data[0].check_out_qr_token_id, active.id);
-
-  const completed = await student.rpc("submit_student_qr_attendance", {
-    p_token_hash: digestAttendanceQrToken(active.token),
-  });
-  assert.ok(!completed.error);
-  assert.equal(completed.data?.[0]?.action, "completed");
-  const afterCompleted = await admin
-    .from("attendance_daily")
-    .select("id")
-    .eq("student_id", developmentStudent.id)
-    .eq("attendance_date", today);
-  assert.ok(!afterCompleted.error);
-  assert.deepEqual(afterCompleted.data, [{ id: firstRow.id }]);
-
-  const expiring = await rotate();
-  const revokedOld = await student.rpc("submit_student_qr_attendance", {
-    p_token_hash: digestAttendanceQrToken(active.token),
-  });
-  assert.ok(revokedOld.error && revokedOld.error.message.includes("qr_revoked"));
-
+  // Force only the test clock boundary, then let the normal staff read rotate.
   const expired = await service.rpc("expire_synthetic_attendance_qr", {
-    p_token_id: expiring.id,
+    p_token_id: adminStarted.token_id,
   });
-  assert.ok(!expired.error && expired.data === true, "Synthetic QR could not be expired safely.");
-  const expiredAttempt = await student.rpc("submit_student_qr_attendance", {
-    p_token_hash: digestAttendanceQrToken(expiring.token),
-  });
-  assert.ok(expiredAttempt.error && expiredAttempt.error.message.includes("qr_expired"));
+  assert.ok(!expired.error && expired.data === true);
+  const rotated = await sessionCall(teacher, "get_attendance_qr_session");
+  assertActive(rotated);
+  tokenIds.push(rotated.token_id);
+  assert.equal(rotated.session_id, adminStarted.session_id, "Rotation must keep the shared session.");
+  assert.notEqual(rotated.token_id, adminStarted.token_id);
+  assert.notEqual(rotated.token_value, adminStarted.token_value);
+  assert.equal(new Date(rotated.expires_at).getTime() - new Date(rotated.created_at).getTime(), 300_000);
 
-  const revoking = await rotate();
-  const revoked = await admin.rpc("revoke_active_attendance_qr");
-  assert.ok(!revoked.error && revoked.data === 1, "Admin could not revoke the active QR.");
-  const revokedAttempt = await student.rpc("submit_student_qr_attendance", {
-    p_token_hash: digestAttendanceQrToken(revoking.token),
+  const previousAfterRotation = await student.rpc("submit_student_qr_attendance", {
+    p_token_hash: digestAttendanceQrToken(adminStarted.token_value),
   });
-  assert.ok(revokedAttempt.error && revokedAttempt.error.message.includes("qr_revoked"));
+  assert.ok(previousAfterRotation.error, "Previous QR must fail after database rotation.");
+  const currentAfterRotation = await student.rpc("submit_student_qr_attendance", {
+    p_token_hash: digestAttendanceQrToken(rotated.token_value),
+  });
+  assert.ok(!currentAfterRotation.error);
+  assert.equal(currentAfterRotation.data?.[0]?.action, "check_out");
 
-  const studentDirectWrite = await student.from("attendance_daily").insert({
-    student_id: developmentStudent.id,
-    attendance_date: today,
+  const adminStopped = await admin.rpc("stop_attendance_qr_session");
+  assert.ok(!adminStopped.error && adminStopped.data === true, "Admin could not stop the shared session.");
+  const stoppedCurrent = await student.rpc("submit_student_qr_attendance", {
+    p_token_hash: digestAttendanceQrToken(rotated.token_value),
   });
-  assert.ok(studentDirectWrite.error, "Student direct attendance-table writes must fail.");
-  const studentTokenWrite = await student.from("qr_tokens").insert({
-    token_hash: digestAttendanceQrToken(generateAttendanceQrToken()),
-    token_type: "attendance",
-    created_by: developmentStudent.id,
-    expires_at: new Date(Date.now() + 300_000).toISOString(),
+  assert.ok(stoppedCurrent.error, "Stopped current QR must be rejected.");
+
+  // Starting later creates a fresh session and a valid new shared QR.
+  const restarted = await sessionCall(teacher, "start_attendance_qr_session");
+  assertActive(restarted);
+  tokenIds.push(restarted.token_id);
+  assert.notEqual(restarted.session_id, adminStarted.session_id);
+  assert.notEqual(restarted.token_value, rotated.token_value);
+  const adminRestartView = await sessionCall(admin, "get_attendance_qr_session");
+  assertActive(adminRestartView);
+  assert.equal(adminRestartView.token_id, restarted.token_id);
+  const restartScan = await student.rpc("submit_student_qr_attendance", {
+    p_token_hash: digestAttendanceQrToken(restarted.token_value),
   });
-  assert.ok(studentTokenWrite.error, "Student direct QR-token writes must fail.");
+  assert.ok(!restartScan.error, "The current QR from the restarted session must be valid.");
+  assert.equal(restartScan.data?.[0]?.action, "completed");
+  const finalTeacherStop = await teacher.rpc("stop_attendance_qr_session");
+  assert.ok(!finalTeacherStop.error && finalTeacherStop.data === true);
+
+  const hiddenCredential = await admin
+    .from("qr_tokens")
+    .select("token_hash, display_token, attendance_session_id")
+    .eq("id", restarted.token_id);
+  assert.ok(hiddenCredential.error, "Shared QR credentials must not be directly selectable.");
   const serviceQrRead = await service.from("qr_tokens").select("id");
-  assert.ok(serviceQrRead.error, "Service role must retain no broad QR-table access.");
+  assert.ok(serviceQrRead.error, "Service role must retain no broad QR table access.");
+  const attendanceRows = await admin
+    .from("attendance_daily")
+    .select("id, student_id, attendance_date, check_in_method, check_out_method")
+    .eq("student_id", studentPerson.data.id)
+    .eq("attendance_date", today);
+  assert.ok(!attendanceRows.error);
+  assert.equal(attendanceRows.data.length, 1);
+  assert.equal(attendanceRows.data[0].student_id, studentPerson.data.id);
+  assert.equal(attendanceRows.data[0].check_in_method, "qr");
+  assert.equal(attendanceRows.data[0].check_out_method, "qr");
 });

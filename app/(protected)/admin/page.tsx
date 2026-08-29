@@ -31,7 +31,7 @@ export default async function AdminPage() {
         </section>
         <section className="card narrow">
           <h2>QR Presensi Siswa</h2>
-          <p className="muted">Buat, putar, tampilkan, atau cabut satu QR presensi aktif.</p>
+          <p className="muted">Mulai, tampilkan, atau hentikan satu sesi QR sekolah bersama.</p>
           <Link className="button button-primary" href="/admin/attendance-qr">Kelola QR Presensi</Link>
         </section>
         <section className="card narrow">

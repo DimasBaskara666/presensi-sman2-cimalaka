@@ -60,7 +60,7 @@ Operational check-in/out timestamps and attendance dates come from PostgreSQL in
 Implemented workflows:
 
 - Teacher `/teacher`: select a class and record today's present/absence state or checkout using controlled PostgreSQL functions.
-- Admin `/admin/attendance-qr`: create/rotate or revoke the single active attendance QR. The default QR lifetime is 300 seconds from `attendance_settings`.
+- Admin `/admin/attendance-qr` and Teacher `/teacher/attendance-qr`: start, share, or stop one school-wide QR session. PostgreSQL rotates the displayed credential at the fixed five-minute boundary, and every staff display receives the same current QR.
 - Student `/student/scan`: submit a current QR for their own check-in or checkout. PostgreSQL validates role, active account, token hash, expiry, schedule, and current attendance state.
 - Attendance history `/attendance/history`: Admin and Teacher can view permitted attendance across Students; a Student sees only their own records. Filters support a maximum 31-day range.
 - PDF export `/attendance/history/pdf`: generates the filtered report server-side, with a maximum of 5,000 rows.
@@ -72,8 +72,8 @@ Implemented workflows:
 | Role | Current access |
 | --- | --- |
 | Anonymous | Login and Student activation forms only; no direct application-table access |
-| Admin | Account management, Student import/activation, QR management, attendance settings, historical correction, database-authorized audit access, all attendance history, and PDF export |
-| Teacher | Today's manual attendance and checkout, attendance history, and PDF export; no Admin routes or Admin RPCs |
+| Admin | Account management, Student import/activation, shared QR session control, attendance settings, historical correction, database-authorized audit access, all attendance history, and PDF export |
+| Teacher | Today's manual attendance and checkout, shared QR session control, attendance history, and PDF export; no Admin routes or other Admin RPCs |
 | Student | Own dashboard, QR check-in/out, own history, own PDF scope, and authenticated password change |
 
 Protected pages load the active `people` row linked to the Supabase session. Server actions verify the role again and never trust a browser-provided role. Authenticated browser clients cannot directly insert, update, or delete attendance, QR, settings, or correction-audit rows; mutations use the approved PostgreSQL functions. The Supabase service-role key is used only in trusted server-side account, import, activation, and test-support operations.
@@ -142,6 +142,7 @@ Current migrations, in order:
 20260825210000_teacher_attendance_roster.sql
 20260825220000_qr_token_attendance_type.sql
 20260825221000_student_qr_attendance.sql
+20260826100000_shared_attendance_qr_session.sql
 ```
 
 Test-cleanup functions are restricted to reserved synthetic fixtures and do not grant broad service-role access to attendance tables.

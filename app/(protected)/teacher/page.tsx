@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireCurrentPerson } from "@/lib/auth/require-person";
 import { loadTeacherAttendanceToday } from "@/lib/attendance/teacher-attendance";
 import type { TeacherAttendanceSummary } from "@/lib/attendance/teacher-attendance-model";
@@ -46,6 +47,14 @@ export default async function TeacherPage({ searchParams }: TeacherPageProps) {
         </div>
         <span className="role-badge">Guru</span>
       </header>
+
+      <section className="card attendance-class-card" aria-labelledby="teacher-qr-title">
+        <div>
+          <h2 id="teacher-qr-title">QR Presensi Sekolah</h2>
+          <p className="muted">Mulai atau tampilkan sesi QR bersama yang berganti otomatis setiap lima menit.</p>
+        </div>
+        <Link className="button button-primary" href="/teacher/attendance-qr">Buka QR Bersama</Link>
+      </section>
 
       <section className="card attendance-class-card" aria-labelledby="attendance-class-title">
         <div>

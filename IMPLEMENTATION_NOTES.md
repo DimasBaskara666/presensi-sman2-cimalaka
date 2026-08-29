@@ -41,6 +41,9 @@ The controlled mutation functions are:
 - `record_manual_absence(student_id, category, note)`
 - `record_manual_check_out(student_id)`
 - `submit_student_qr_attendance(token_hash)`
+- `start_attendance_qr_session()`
+- `get_attendance_qr_session()`
+- `stop_attendance_qr_session()`
 - `update_attendance_schedule(...)`
 - `correct_attendance(...)`
 
@@ -49,7 +52,7 @@ Direct browser writes to attendance, settings, QR, and correction tables are rev
 ## Attendance workflows
 
 - `/teacher` is Teacher-only and loads active Students through the narrow roster function. Teachers can operate only on today's attendance; they choose present or an absence category and can record checkout. They cannot submit a date or attendance time.
-- `/admin/attendance-qr` is Admin-only. QR rotation deactivates the previous active token, stores only a SHA-256 hash, and uses the configured lifetime (default 300 seconds).
+- `/admin/attendance-qr` and `/teacher/attendance-qr` control one school-wide session. Admin or Teacher can start and stop it. Staff refresh calls return the same current credential; PostgreSQL uses its clock and an advisory lock to rotate after exactly five minutes, immediately invalidating the previous QR. The short-lived display credential is excluded from direct table grants and is returned only by the role-checked staff function.
 - `/student/scan` is Student-only. The Student submits the raw opaque token to a server action, which hashes it before calling PostgreSQL. The database validates the linked active Student, token type/state/expiry, server time, and existing daily row. The same QR transaction chooses check-in, checkout, or already-completed behavior.
 - `/attendance/history` is available to all authenticated roles. Admin and Teacher can query permitted Student attendance; Student queries are forced to the current Student ID. Results use stored identity snapshots and a maximum 31-day filter range.
 - `/attendance/history/pdf` applies the same role and filter scope and renders a server-side PDF. Reports above 5,000 rows are rejected.
@@ -62,7 +65,7 @@ Direct browser writes to attendance, settings, QR, and correction tables are rev
 | --- | --- | --- | --- | --- |
 | Account/roster administration | Yes | No | No | No |
 | Teacher manual attendance | RPC permitted; no current Admin UI | Yes, today only | No | No |
-| QR creation/revocation | Yes | No | No | No |
+| Shared QR session start/stop/display | Yes | Yes | No | No |
 | QR check-in/out | No | No | Own account only | No |
 | Attendance history/PDF | All permitted rows | All permitted rows | Own rows only | No |
 | Attendance settings | Yes | No | No | No |
