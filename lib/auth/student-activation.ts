@@ -43,7 +43,9 @@ export type StudentActivationErrorCode =
   | "activation_cleanup_failed"
   | "student_not_found"
   | "student_not_eligible"
-  | "code_prepare_failed";
+  | "code_prepare_failed"
+  | "bulk_prepare_failed"
+  | "no_eligible_students";
 
 export class StudentActivationError extends Error {
   constructor(readonly code: StudentActivationErrorCode) {

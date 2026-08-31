@@ -51,7 +51,8 @@ export default async function StudentsPage({ searchParams }: StudentPageProps) {
           <p className="muted">Kelola roster, aktivasi, status akses, dan pemulihan kata sandi siswa.</p>
         </div>
         <div className="page-actions">
-          <Link className="button button-primary" href="/admin/students/import">Import Students</Link>
+          <Link className="button button-primary" href="/admin/students/activation-bulk">Distribusi Slip Aktivasi</Link>
+          <Link className="button button-secondary" href="/admin/students/import">Import Students</Link>
           <Link className="button button-secondary" href="/admin">Back</Link>
         </div>
       </header>
