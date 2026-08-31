@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
+import jsQR from "jsqr";
 import type { StudentQrActionResult } from "@/lib/attendance/student-qr-model";
 import { submitStudentQrAction } from "./actions";
 
@@ -77,10 +78,7 @@ export function StudentQrScanner({ initialToken }: { initialToken: string | null
 
   async function startCamera() {
     setResult(null);
-    const detectorConstructor = (window as typeof window & {
-      BarcodeDetector?: NativeBarcodeDetectorConstructor;
-    }).BarcodeDetector;
-    if (!detectorConstructor || !navigator.mediaDevices?.getUserMedia) {
+    if (!navigator.mediaDevices?.getUserMedia) {
       setCameraState("unsupported");
       return;
     }
@@ -103,16 +101,41 @@ export function StudentQrScanner({ initialToken }: { initialToken: string | null
       video.srcObject = stream;
       await video.play();
       setCameraState("scanning");
-      const detector = new detectorConstructor({ formats: ["qr_code"] });
+
+      const detectorConstructor = (window as typeof window & {
+        BarcodeDetector?: NativeBarcodeDetectorConstructor;
+      }).BarcodeDetector;
+      const detector = detectorConstructor ? new detectorConstructor({ formats: ["qr_code"] }) : null;
+
+      const canvas = document.createElement("canvas");
+      const canvasCtx = canvas.getContext("2d", { willReadFrequently: true });
 
       const scanFrame = async () => {
         if (scanRunRef.current !== run || !videoRef.current) return;
+        const currentVideo = videoRef.current;
         try {
-          const codes = await detector.detect(videoRef.current);
-          const token = codes.map((code) => code.rawValue ?? "").map(tokenFromScan).find(Boolean);
-          if (token) {
-            processToken(token);
-            return;
+          if (detector) {
+            const codes = await detector.detect(currentVideo);
+            const token = codes.map((code) => code.rawValue ?? "").map(tokenFromScan).find(Boolean);
+            if (token) {
+              processToken(token);
+              return;
+            }
+          } else if (canvasCtx && currentVideo.videoWidth > 0 && currentVideo.videoHeight > 0) {
+            canvas.width = currentVideo.videoWidth;
+            canvas.height = currentVideo.videoHeight;
+            canvasCtx.drawImage(currentVideo, 0, 0, canvas.width, canvas.height);
+            const imageData = canvasCtx.getImageData(0, 0, canvas.width, canvas.height);
+            const code = jsQR(imageData.data, imageData.width, imageData.height, {
+              inversionAttempts: "dontInvert",
+            });
+            if (code?.data) {
+              const token = tokenFromScan(code.data);
+              if (token) {
+                processToken(token);
+                return;
+              }
+            }
           }
         } catch {
           // A transient undecodable camera frame is expected while scanning.
@@ -153,7 +176,7 @@ export function StudentQrScanner({ initialToken }: { initialToken: string | null
       ) : (
         <>
           <div className={`student-camera-frame${cameraState === "scanning" ? " is-active" : ""}`}>
-            <video ref={videoRef} muted playsInline aria-label="Pratinjau kamera pemindai QR" />
+            <video ref={videoRef} autoPlay muted playsInline aria-label="Pratinjau kamera pemindai QR" />
             {cameraState !== "scanning" ? <span aria-hidden="true">QR</span> : null}
           </div>
           <div className="page-actions student-scan-actions">
