@@ -48,10 +48,20 @@ export default function StudentImportWorkflow() {
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
+  const allSheetsHaveClass = Boolean(
+    inspection?.worksheets?.length &&
+      inspection.worksheets.every((ws) => Boolean(ws.className)),
+  );
+
   const mappingComplete =
     mapping.idType !== "" &&
-    Boolean(mapping.idColumn && mapping.fullNameColumn && mapping.classColumn) &&
-    new Set([mapping.idColumn, mapping.fullNameColumn, mapping.classColumn]).size === 3;
+    Boolean(mapping.idColumn && mapping.fullNameColumn) &&
+    mapping.idColumn !== mapping.fullNameColumn &&
+    (!mapping.classColumn ||
+      (mapping.classColumn !== mapping.idColumn &&
+        mapping.classColumn !== mapping.fullNameColumn)) &&
+    (allSheetsHaveClass || Boolean(mapping.classColumn));
+
   const blockingErrors = preview?.issues.filter((issue) => issue.severity === "error") ?? [];
   const warnings = preview?.issues.filter((issue) => issue.severity === "warning") ?? [];
 
@@ -82,6 +92,19 @@ export default function StudentImportWorkflow() {
         return;
       }
       setInspection(result.inspection);
+
+      const headers = result.inspection.headers;
+      const idHeader = headers.find((h) => /^(?:nisn|nis|id|school id|kode)/i.test(h.label));
+      const nameHeader = headers.find((h) => /^(?:nama|full name|name)/i.test(h.label));
+      const classHeader = headers.find((h) => /^(?:class|kelas|rombel)/i.test(h.label));
+      const detectedIdType = idHeader && /nisn/i.test(idHeader.label) ? "nisn" : "nis";
+
+      setMapping({
+        idColumn: idHeader ? String(idHeader.column) : "",
+        fullNameColumn: nameHeader ? String(nameHeader.column) : "",
+        classColumn: classHeader ? String(classHeader.column) : "",
+        idType: detectedIdType,
+      });
     });
   }
 
@@ -120,7 +143,7 @@ export default function StudentImportWorkflow() {
       <section className="card" aria-labelledby="upload-title">
         <p className="step-label">Step 1</p>
         <h2 id="upload-title">Choose workbook</h2>
-        <p className="muted">One .xlsx worksheet, maximum 5 MB and 2,000 Student rows.</p>
+        <p className="muted">Supports multi-sheet .xlsx workbooks (e.g. KELAS 10, KELAS 11, KELAS 12), maximum 5 MB and 2,000 total Student rows.</p>
         <div className="field">
           <label htmlFor="student-workbook">Excel workbook</label>
           <input
@@ -141,7 +164,22 @@ export default function StudentImportWorkflow() {
         <section className="card" aria-labelledby="mapping-title">
           <p className="step-label">Step 2</p>
           <h2 id="mapping-title">Map columns</h2>
-          <p className="muted">{inspection.totalRows} meaningful Student rows detected. No database write has occurred.</p>
+          <p className="muted">{inspection.totalRows} meaningful Student rows detected across {inspection.worksheets?.length ?? 1} worksheet(s). No database write has occurred.</p>
+
+          {inspection.worksheets && inspection.worksheets.length > 0 ? (
+            <div className="worksheet-summary-list" style={{ marginBottom: "1rem" }}>
+              <h3>Worksheets detected ({inspection.worksheets.length})</h3>
+              <div className="summary-grid">
+                {inspection.worksheets.map((ws) => (
+                  <div key={ws.name} className="summary-item">
+                    <span>{ws.name}</span>
+                    <strong>{ws.className ? `Class: ${ws.className}` : "Class from column"} ({ws.totalRows} students)</strong>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
           <div className="mapping-grid">
             <ColumnSelect
               id="id-column"
@@ -157,13 +195,25 @@ export default function StudentImportWorkflow() {
               headers={inspection.headers}
               onChange={(value) => updateMapping("fullNameColumn", value)}
             />
-            <ColumnSelect
-              id="class-column"
-              label="Class column"
-              value={mapping.classColumn}
-              headers={inspection.headers}
-              onChange={(value) => updateMapping("classColumn", value)}
-            />
+            <div className="field">
+              <label htmlFor="class-column">Class column</label>
+              <select
+                id="class-column"
+                value={mapping.classColumn}
+                onChange={(event) => updateMapping("classColumn", event.target.value)}
+              >
+                <option value="">
+                  {allSheetsHaveClass
+                    ? "Extracted from worksheet header (e.g. KELAS : ...)"
+                    : "Choose class column"}
+                </option>
+                {inspection.headers.map((header) => (
+                  <option key={header.column} value={header.column}>
+                    Column {header.column}: {header.label}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="field">
               <label htmlFor="id-type">Student ID type</label>
               <select
@@ -178,7 +228,11 @@ export default function StudentImportWorkflow() {
             </div>
           </div>
           {!mappingComplete && Object.values(mapping).some(Boolean) ? (
-            <p className="alert alert-error">Choose three different columns and one ID type.</p>
+            <p className="alert alert-error">
+              {allSheetsHaveClass
+                ? "Choose Student ID column, Full Name column, and ID type."
+                : "Choose Student ID column, Full Name column, Class column, and ID type."}
+            </p>
           ) : null}
           <button className="button button-primary" type="button" disabled={!mappingComplete || pending} onClick={validate}>
             Validate and preview
@@ -198,6 +252,20 @@ export default function StudentImportWorkflow() {
             <Summary label="Errors" value={blockingErrors.length} />
             <Summary label="Warnings" value={warnings.length} />
           </div>
+
+          {preview.worksheets && preview.worksheets.length > 0 ? (
+            <div className="worksheet-summary-list" style={{ marginTop: "1rem", marginBottom: "1rem" }}>
+              <h3>Worksheet breakdown</h3>
+              <div className="summary-grid">
+                {preview.worksheets.map((ws) => (
+                  <div key={ws.name} className="summary-item">
+                    <span>{ws.name}</span>
+                    <strong>{ws.className ? `Class: ${ws.className}` : "Class from column"} &bull; {ws.totalRows} students</strong>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           {blockingErrors.length ? (
             <IssueList title="Blocking errors" issues={blockingErrors} tone="error" />
@@ -287,6 +355,7 @@ function IssueList({
       <ul>
         {issues.slice(0, 100).map((issue, index) => (
           <li key={`${issue.code}-${issue.rowNumber ?? "general"}-${index}`}>
+            {issue.worksheetName ? `[${issue.worksheetName}] ` : ""}
             {issue.rowNumber ? `Row ${issue.rowNumber}: ` : ""}{issue.message}
           </li>
         ))}

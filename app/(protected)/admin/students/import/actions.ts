@@ -59,10 +59,12 @@ function mappingFrom(formData: FormData): StudentColumnMapping {
   if (idType !== "nis" && idType !== "nisn") {
     throw new StudentWorkbookError("invalid_id_type", "Choose whether the Student ID is NIS or NISN.");
   }
+  const classColumnRaw = formData.get("class_column");
+  const classColumn = classColumnRaw && Number(classColumnRaw) > 0 ? Number(classColumnRaw) : null;
   return {
     idColumn: Number(formData.get("id_column")),
     fullNameColumn: Number(formData.get("full_name_column")),
-    classColumn: Number(formData.get("class_column")),
+    classColumn,
     idType,
   };
 }
@@ -90,6 +92,7 @@ export async function previewStudentImportAction(
       parsed.inspection.totalRows,
       parsed.rows,
       parsed.issues,
+      parsed.inspection.worksheets,
     );
     return { ok: true, preview };
   } catch (error) {
@@ -118,6 +121,7 @@ export async function confirmStudentImportAction(
       parsed.inspection.totalRows,
       parsed.rows,
       parsed.issues,
+      parsed.inspection.worksheets,
     );
     if (preview.issues.some((issue) => issue.severity === "error")) {
       throw new StudentWorkbookError(

@@ -14,6 +14,7 @@ import {
   type StudentColumnMapping,
 } from "../lib/students/import-types";
 import {
+  syntheticMultiSheetWorkbook,
   syntheticRows,
   syntheticStudentWorkbook,
 } from "./fixtures/synthetic-student-workbooks";
@@ -141,7 +142,165 @@ test("rejects duplicate column mapping", async () => {
   );
 });
 
-test("enforces extension, file-size, worksheet, and row limits", async () => {
+test("accepts multiple supported worksheets and processes KELAS 10, KELAS 11, and KELAS 12", async () => {
+  const multiWorkbook = await syntheticMultiSheetWorkbook([
+    {
+      name: "KELAS 10",
+      classHeader: "KELAS : 10.1",
+      headers: ["No", "NIS", "NAMA LENGKAP", "L/P", "1", "2", "3"],
+      rows: [
+        [1, "001001", "Student Ten One", "L", "H", "H", "H"],
+        [2, "001002", "Student Ten Two", "P", "H", "S", "H"],
+      ],
+    },
+    {
+      name: "KELAS 11",
+      classHeader: "KELAS : 11.1",
+      headers: ["No", "NIS", "NAMA LENGKAP", "L/P", "1", "2", "3"],
+      rows: [
+        [1, "001101", "Student Eleven One", "L", "H", "H", "H"],
+      ],
+    },
+    {
+      name: "KELAS 12",
+      classHeader: "KELAS : 12.1",
+      headers: ["No", "NIS", "NAMA LENGKAP", "L/P", "1", "2", "3"],
+      rows: [
+        [1, "001201", "Student Twelve One", "P", "H", "H", "H"],
+        [2, "001202", "Student Twelve Two", "L", "H", "A", "H"],
+      ],
+    },
+  ]);
+
+  const inspection = await inspectStudentWorkbook(multiWorkbook);
+  assert.equal(inspection.totalRows, 5);
+  assert.equal(inspection.worksheets?.length, 3);
+  assert.deepEqual(
+    inspection.worksheets?.map((ws) => ({ name: ws.name, className: ws.className, totalRows: ws.totalRows })),
+    [
+      { name: "KELAS 10", className: "10.1", totalRows: 2 },
+      { name: "KELAS 11", className: "11.1", totalRows: 1 },
+      { name: "KELAS 12", className: "12.1", totalRows: 2 },
+    ],
+  );
+
+  const parsed = await parseStudentWorkbook(multiWorkbook, {
+    idColumn: 2,
+    fullNameColumn: 3,
+    idType: "nis",
+  });
+
+  assert.equal(parsed.rows.length, 5);
+  assert.deepEqual(parsed.rows.map((r) => ({ loginId: r.loginId, fullName: r.fullName, className: r.className })), [
+    { loginId: "001001", fullName: "Student Ten One", className: "10.1" },
+    { loginId: "001002", fullName: "Student Ten Two", className: "10.1" },
+    { loginId: "001101", fullName: "Student Eleven One", className: "11.1" },
+    { loginId: "001201", fullName: "Student Twelve One", className: "12.1" },
+    { loginId: "001202", fullName: "Student Twelve Two", className: "12.1" },
+  ]);
+
+  // Attendance and row numbering columns are ignored as warnings
+  const extraWarnings = parsed.issues.filter((i) => i.code === "extra_column");
+  assert.ok(extraWarnings.length > 0);
+  assert.equal(parsed.issues.some((i) => i.severity === "error"), false);
+});
+
+test("associates students with nearest class section within multi-section worksheet", async () => {
+  const multiSectionWorkbook = await syntheticMultiSheetWorkbook([
+    {
+      name: "KELAS 12",
+      classHeader: "KELAS : 12.1",
+      headers: ["No", "NIS", "NAMA LENGKAP", "L/P", "1", "2"],
+      rows: [
+        [1, "001211", "Student Section One", "L", "H", "H"],
+      ],
+      subsections: [
+        {
+          classHeader: "KELAS : 12.2",
+          headers: ["No", "NIS", "NAMA LENGKAP", "L/P", "1", "2"],
+          rows: [
+            [1, "001221", "Student Section Two", "P", "H", "H"],
+          ],
+        },
+      ],
+    },
+  ]);
+
+  const parsed = await parseStudentWorkbook(multiSectionWorkbook, {
+    idColumn: 2,
+    fullNameColumn: 3,
+    idType: "nis",
+  });
+
+  assert.equal(parsed.rows.length, 2);
+  assert.equal(parsed.rows[0].className, "12.1");
+  assert.equal(parsed.rows[0].loginId, "001211");
+  assert.equal(parsed.rows[1].className, "12.2");
+  assert.equal(parsed.rows[1].loginId, "001221");
+});
+
+test("rejects duplicate student IDs across different worksheets", async () => {
+  const duplicateWorkbook = await syntheticMultiSheetWorkbook([
+    {
+      name: "KELAS 10",
+      classHeader: "KELAS : 10.1",
+      rows: [[1, "009999", "Student Duplicate One", "L"]],
+    },
+    {
+      name: "KELAS 11",
+      classHeader: "KELAS : 11.1",
+      rows: [[1, "009999", "Student Duplicate Two", "P"]],
+    },
+  ]);
+
+  const parsed = await parseStudentWorkbook(duplicateWorkbook, {
+    idColumn: 2,
+    fullNameColumn: 3,
+    idType: "nis",
+  });
+
+  assert.ok(
+    parsed.issues.some((i) => i.code === "duplicate_student_id" && i.loginId === "009999"),
+  );
+});
+
+test("rejects missing class information when worksheet has no class header and no class column", async () => {
+  const noClassWorkbook = await syntheticMultiSheetWorkbook([
+    {
+      name: "KELAS NO HEADER",
+      headers: ["No", "NIS", "NAMA LENGKAP", "L/P"],
+      rows: [[1, "001001", "Student No Class", "L"]],
+    },
+  ]);
+
+  const parsed = await parseStudentWorkbook(noClassWorkbook, {
+    idColumn: 2,
+    fullNameColumn: 3,
+    idType: "nis",
+  });
+
+  assert.ok(
+    parsed.issues.some((i) => i.code === "missing_class"),
+  );
+});
+
+test("rejects invalid worksheet with clear error identifying the worksheet", async () => {
+  const invalidWorkbook = await syntheticStudentWorkbook({
+    headers: ["ID", "Name", "Class"],
+    rows: [["SYN001", "Synthetic One", "X-SYN-1"]],
+    addSecondWorksheet: true,
+  });
+
+  await assert.rejects(
+    inspectStudentWorkbook(invalidWorkbook),
+    (error: unknown) =>
+      error instanceof StudentWorkbookError &&
+      error.code === "invalid_worksheet" &&
+      error.message.includes("Unexpected Sheet"),
+  );
+});
+
+test("enforces extension, file-size, and total row limits across all worksheets", async () => {
   assert.throws(
     () => validateStudentWorkbookUpload("students.xls", 100),
     (error: unknown) => error instanceof StudentWorkbookError && error.code === "invalid_extension",
@@ -151,22 +310,21 @@ test("enforces extension, file-size, worksheet, and row limits", async () => {
     (error: unknown) => error instanceof StudentWorkbookError && error.code === "file_limit",
   );
 
-  const twoSheets = await syntheticStudentWorkbook({
-    headers: ["ID", "Name", "Class"],
-    rows: [["SYN001", "Synthetic One", "X-SYN-1"]],
-    addSecondWorksheet: true,
-  });
-  await assert.rejects(
-    inspectStudentWorkbook(twoSheets),
-    (error: unknown) => error instanceof StudentWorkbookError && error.code === "worksheet_limit",
-  );
+  const rowLimitWorkbook = await syntheticMultiSheetWorkbook([
+    {
+      name: "KELAS 10",
+      classHeader: "KELAS : 10.1",
+      rows: syntheticRows(STUDENT_IMPORT_MAX_ROWS - 500).map((r, i) => [i + 1, r[0], r[1], "L"]),
+    },
+    {
+      name: "KELAS 11",
+      classHeader: "KELAS : 11.1",
+      rows: syntheticRows(501).map((r, i) => [i + 1, `B${r[0]}`, r[1], "P"]),
+    },
+  ]);
 
-  const rowLimit = await syntheticStudentWorkbook({
-    headers: ["ID", "Name", "Class"],
-    rows: syntheticRows(STUDENT_IMPORT_MAX_ROWS + 1),
-  });
   await assert.rejects(
-    inspectStudentWorkbook(rowLimit),
+    inspectStudentWorkbook(rowLimitWorkbook),
     (error: unknown) => error instanceof StudentWorkbookError && error.code === "row_limit",
   );
 });

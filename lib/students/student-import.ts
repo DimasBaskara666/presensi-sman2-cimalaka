@@ -6,6 +6,7 @@ import type {
   StudentImportPreview,
   StudentImportSummary,
   StudentPreviewRow,
+  WorksheetInspection,
 } from "./import-types";
 
 type ExistingPerson = {
@@ -52,6 +53,7 @@ export async function analyzeStudentImport(
   totalRows: number,
   rows: ParsedStudentRow[],
   parserIssues: StudentImportIssue[],
+  worksheets?: WorksheetInspection[],
 ): Promise<StudentImportPreview> {
   const people = await loadAllPeople();
   const byLoginId = new Map(people.map((person) => [person.login_id, person]));
@@ -143,6 +145,7 @@ export async function analyzeStudentImport(
     unchangedCount: previewRows.filter((row) => row.action === "unchanged").length,
     rows: previewRows,
     issues,
+    worksheets,
   };
 }
 

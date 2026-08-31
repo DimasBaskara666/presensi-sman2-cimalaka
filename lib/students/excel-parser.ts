@@ -9,6 +9,7 @@ import {
   type StudentImportIssue,
   type WorkbookHeader,
   type WorkbookInspection,
+  type WorksheetInspection,
 } from "./import-types";
 
 export type ParsedWorkbook = {
@@ -64,57 +65,111 @@ function headerText(cell: ExcelJS.Cell, column: number): string {
   return label || `Column ${column}`;
 }
 
-function findHeaderRow(worksheet: ExcelJS.Worksheet): ExcelJS.Row {
-  for (let rowNumber = 1; rowNumber <= worksheet.rowCount; rowNumber += 1) {
-    const row = worksheet.getRow(rowNumber);
-    if (isMeaningfulRow(row)) return row;
-  }
-  throw new StudentWorkbookError("no_header", "The worksheet does not contain a header row.");
-}
+export function extractClassFromRow(row: ExcelJS.Row): string | null {
+  if (isTableHeaderRow(row)) return null;
 
-function meaningfulDataRows(worksheet: ExcelJS.Worksheet, headerRowNumber: number): ExcelJS.Row[] {
-  const rows: ExcelJS.Row[] = [];
-  for (let rowNumber = headerRowNumber + 1; rowNumber <= worksheet.rowCount; rowNumber += 1) {
-    const row = worksheet.getRow(rowNumber);
-    if (!isMeaningfulRow(row)) continue;
-    rows.push(row);
-    if (rows.length > STUDENT_IMPORT_MAX_ROWS) {
-      throw new StudentWorkbookError(
-        "row_limit",
-        `The workbook exceeds the ${STUDENT_IMPORT_MAX_ROWS}-row limit.`,
-      );
+  for (let col = 1; col <= row.cellCount; col += 1) {
+    const cell = row.getCell(col);
+    if (!hasCellValue(cell)) continue;
+    if (isFormulaCell(cell)) return null;
+
+    const text = cell.text.trim();
+
+    // Pattern A: "KELAS : 12.1", "KELAS: 12.1", "Kelas : 10.1", "ROMBEL : 11.2", "KELAS 12.1", "CLASS : 10.1"
+    const match = text.match(/^(?:KELAS(?:\s*\/\s*ROMBEL)?|ROMBEL|CLASS)\s*(?:[:=-]\s*|\s+)(.+)$/i);
+    if (match && match[1].trim()) {
+      return match[1].trim();
+    }
+
+    // Pattern B: Cell is just "KELAS" or "KELAS :" or "KELAS:", and next cell has the value
+    if (/^(?:KELAS(?:\s*\/\s*ROMBEL)?|ROMBEL|CLASS)\s*[:=-]?$/i.test(text)) {
+      for (let nextCol = col + 1; nextCol <= row.cellCount; nextCol += 1) {
+        const nextCell = row.getCell(nextCol);
+        if (hasCellValue(nextCell)) {
+          if (isFormulaCell(nextCell)) return null;
+          const nextText = nextCell.text.trim().replace(/^[:=-]\s*/, "");
+          if (nextText) return nextText;
+        }
+      }
     }
   }
-  return rows;
+  return null;
 }
 
-async function loadWorkbook(buffer: Buffer): Promise<{
-  workbook: ExcelJS.Workbook;
-  worksheet: ExcelJS.Worksheet;
-  headerRow: ExcelJS.Row;
-  dataRows: ExcelJS.Row[];
-}> {
-  const workbook = new ExcelJS.Workbook();
-  try {
-    await workbook.xlsx.load(buffer as unknown as ExcelJS.Buffer);
-  } catch {
-    throw new StudentWorkbookError("invalid_workbook", "The file is not a readable .xlsx workbook.");
+function isTableHeaderRow(row: ExcelJS.Row): boolean {
+  if (!isMeaningfulRow(row)) return false;
+  let idOrNoCount = 0;
+  let nameCount = 0;
+  let otherHeaderCount = 0;
+
+  for (let col = 1; col <= row.cellCount; col += 1) {
+    const cell = row.getCell(col);
+    if (!hasCellValue(cell)) continue;
+    const text = cell.text.trim().toUpperCase();
+    if (
+      text === "NIS" ||
+      text === "NISN" ||
+      text === "ID" ||
+      text === "SCHOOL ID" ||
+      text === "KODE" ||
+      text === "KODE SEKOLAH" ||
+      text === "NO. INDUK" ||
+      text === "NOMOR INDUK" ||
+      text === "NO" ||
+      text === "NO."
+    ) {
+      idOrNoCount += 1;
+    } else if (
+      text === "NAMA" ||
+      text === "NAMA LENGKAP" ||
+      text === "NAMA PESERTA" ||
+      text === "NAMA SISWA" ||
+      text === "NAMA PESERTA DIDIK" ||
+      text === "FULL NAME" ||
+      text === "NAME"
+    ) {
+      nameCount += 1;
+    } else if (
+      text === "L/P" ||
+      text === "JK" ||
+      text === "JENIS KELAMIN" ||
+      text === "CLASS" ||
+      text === "KELAS" ||
+      text === "ROMBEL" ||
+      text === "GROUP" ||
+      text === "CATATAN" ||
+      text === "KETERANGAN"
+    ) {
+      otherHeaderCount += 1;
+    }
   }
 
-  if (workbook.worksheets.length === 0) {
-    throw new StudentWorkbookError("no_worksheet", "The workbook does not contain a worksheet.");
-  }
-  if (workbook.worksheets.length !== 1) {
-    throw new StudentWorkbookError("worksheet_limit", "The workbook must contain exactly one worksheet.");
-  }
+  return (idOrNoCount > 0 && nameCount > 0) || (idOrNoCount + nameCount + otherHeaderCount >= 2);
+}
 
-  const worksheet = workbook.worksheets[0];
-  const headerRow = findHeaderRow(worksheet);
-  const dataRows = meaningfulDataRows(worksheet, headerRow.number);
-  if (dataRows.length === 0) {
-    throw new StudentWorkbookError("no_students", "The worksheet does not contain Student rows.");
+function isSectionFooterRow(row: ExcelJS.Row): boolean {
+  for (let col = 1; col <= row.cellCount; col += 1) {
+    const cell = row.getCell(col);
+    if (!hasCellValue(cell)) continue;
+    const text = cell.text.trim().toLowerCase();
+    if (
+      text.includes("wali kelas") ||
+      text.includes("kepala sekolah") ||
+      text.includes("mengetahui") ||
+      text.startsWith("nip") ||
+      text.startsWith("sumedang,") ||
+      text.includes("pemerintah daerah") ||
+      text.includes("dinas pendidikan") ||
+      text.includes("cabang dinas") ||
+      text.includes("sma negeri 2") ||
+      text.includes("jalan margamukti") ||
+      text.includes("website :") ||
+      text.includes("daftar hadir siswa")
+    ) {
+      return true;
+    }
   }
-  return { workbook, worksheet, headerRow, dataRows };
+  return false;
 }
 
 function worksheetHeaders(headerRow: ExcelJS.Row): WorkbookHeader[] {
@@ -130,16 +185,173 @@ function worksheetHeaders(headerRow: ExcelJS.Row): WorkbookHeader[] {
   return headers;
 }
 
+type ParsedSheetData = {
+  worksheet: ExcelJS.Worksheet;
+  headers: WorkbookHeader[];
+  detectedClasses: string[];
+  dataRows: Array<{
+    row: ExcelJS.Row;
+    sectionClass: string | null;
+  }>;
+};
+
+function parseWorksheetStructure(worksheet: ExcelJS.Worksheet): ParsedSheetData {
+  const detectedClasses: string[] = [];
+  let currentClass: string | null = null;
+  let activeHeaders: WorkbookHeader[] = [];
+  let firstHeaderRowNumber = 0;
+  const dataRows: Array<{ row: ExcelJS.Row; sectionClass: string | null }> = [];
+
+  let primaryHeaderRowNumber = 0;
+  for (let rowNumber = 1; rowNumber <= worksheet.rowCount; rowNumber += 1) {
+    const row = worksheet.getRow(rowNumber);
+    if (!isMeaningfulRow(row)) continue;
+    if (extractClassFromRow(row)) continue;
+    if (isTableHeaderRow(row)) {
+      primaryHeaderRowNumber = rowNumber;
+      break;
+    }
+  }
+
+  if (primaryHeaderRowNumber === 0) {
+    for (let rowNumber = 1; rowNumber <= worksheet.rowCount; rowNumber += 1) {
+      const row = worksheet.getRow(rowNumber);
+      if (!isMeaningfulRow(row)) continue;
+      if (extractClassFromRow(row)) continue;
+      primaryHeaderRowNumber = rowNumber;
+      break;
+    }
+  }
+
+  if (primaryHeaderRowNumber === 0) {
+    throw new StudentWorkbookError(
+      "invalid_worksheet",
+      `Worksheet "${worksheet.name}" does not contain a valid header row.`,
+    );
+  }
+
+  for (let rowNumber = 1; rowNumber <= worksheet.rowCount; rowNumber += 1) {
+    const row = worksheet.getRow(rowNumber);
+    if (!isMeaningfulRow(row)) continue;
+
+    const classFromRow = extractClassFromRow(row);
+    if (classFromRow) {
+      currentClass = classFromRow;
+      if (!detectedClasses.includes(currentClass)) {
+        detectedClasses.push(currentClass);
+      }
+      continue;
+    }
+
+    if (rowNumber === primaryHeaderRowNumber || (rowNumber > primaryHeaderRowNumber && isTableHeaderRow(row))) {
+      activeHeaders = worksheetHeaders(row);
+      if (firstHeaderRowNumber === 0) firstHeaderRowNumber = rowNumber;
+      continue;
+    }
+
+    if (isSectionFooterRow(row)) {
+      currentClass = null;
+      continue;
+    }
+
+    if (rowNumber < primaryHeaderRowNumber) {
+      continue;
+    }
+
+    if (activeHeaders.length > 0 && rowNumber > firstHeaderRowNumber) {
+      // Must have some content in ID/Name column or row numbering
+      const c1 = row.getCell(1).text.trim();
+      const c2 = row.getCell(2).text.trim();
+      const c3 = row.getCell(3).text.trim();
+      if (c1 || c2 || c3) {
+        dataRows.push({ row, sectionClass: currentClass });
+      }
+    }
+  }
+
+  if (activeHeaders.length === 0) {
+    throw new StudentWorkbookError(
+      "invalid_worksheet",
+      `Worksheet "${worksheet.name}" does not contain a valid header row.`,
+    );
+  }
+
+  if (dataRows.length === 0) {
+    throw new StudentWorkbookError(
+      "invalid_worksheet",
+      `Worksheet "${worksheet.name}" does not contain Student rows.`,
+    );
+  }
+
+  return {
+    worksheet,
+    headers: activeHeaders,
+    detectedClasses,
+    dataRows,
+  };
+}
+
+async function loadWorkbook(buffer: Buffer): Promise<ExcelJS.Workbook> {
+  const workbook = new ExcelJS.Workbook();
+  try {
+    await workbook.xlsx.load(buffer as unknown as ExcelJS.Buffer);
+  } catch {
+    throw new StudentWorkbookError("invalid_workbook", "The file is not a readable .xlsx workbook.");
+  }
+
+  if (workbook.worksheets.length === 0) {
+    throw new StudentWorkbookError("no_worksheet", "The workbook does not contain a worksheet.");
+  }
+
+  return workbook;
+}
+
 function fileHash(buffer: Buffer): string {
   return createHash("sha256").update(buffer).digest("hex");
 }
 
 export async function inspectStudentWorkbook(buffer: Buffer): Promise<WorkbookInspection> {
-  const { headerRow, dataRows } = await loadWorkbook(buffer);
+  const workbook = await loadWorkbook(buffer);
+  const worksheetInspections: WorksheetInspection[] = [];
+  const allHeaders: WorkbookHeader[] = [];
+  const headerLabels = new Set<string>();
+  let totalRows = 0;
+
+  for (const worksheet of workbook.worksheets) {
+    const sheetData = parseWorksheetStructure(worksheet);
+    totalRows += sheetData.dataRows.length;
+
+    if (totalRows > STUDENT_IMPORT_MAX_ROWS) {
+      throw new StudentWorkbookError(
+        "row_limit",
+        `The workbook exceeds the ${STUDENT_IMPORT_MAX_ROWS}-row limit.`,
+      );
+    }
+
+    worksheetInspections.push({
+      name: worksheet.name,
+      className: sheetData.detectedClasses.join(", ") || null,
+      totalRows: sheetData.dataRows.length,
+      headers: sheetData.headers,
+    });
+
+    for (const header of sheetData.headers) {
+      if (!headerLabels.has(header.label)) {
+        headerLabels.add(header.label);
+        allHeaders.push(header);
+      }
+    }
+  }
+
+  if (totalRows === 0) {
+    throw new StudentWorkbookError("no_students", "The workbook does not contain Student rows.");
+  }
+
   return {
     fileHash: fileHash(buffer),
-    headers: worksheetHeaders(headerRow),
-    totalRows: dataRows.length,
+    headers: allHeaders.length > 0 ? allHeaders : worksheetInspections[0].headers,
+    totalRows,
+    worksheets: worksheetInspections,
   };
 }
 
@@ -148,12 +360,14 @@ function requiredText(
   fieldName: string,
   rowNumber: number,
   issues: StudentImportIssue[],
+  worksheetName?: string,
 ): string | null {
   if (isFormulaCell(cell)) {
     issues.push({
       severity: "error",
       code: "formula_value",
       rowNumber,
+      worksheetName,
       message: `${fieldName} cannot contain a formula.`,
     });
     return null;
@@ -164,6 +378,7 @@ function requiredText(
       severity: "error",
       code: "missing_required_value",
       rowNumber,
+      worksheetName,
       message: `${fieldName} is required.`,
     });
     return null;
@@ -175,12 +390,14 @@ function studentIdText(
   cell: ExcelJS.Cell,
   rowNumber: number,
   issues: StudentImportIssue[],
+  worksheetName?: string,
 ): string | null {
   if (isFormulaCell(cell)) {
     issues.push({
       severity: "error",
       code: "formula_value",
       rowNumber,
+      worksheetName,
       message: "Student ID cannot contain a formula.",
     });
     return null;
@@ -192,21 +409,26 @@ function studentIdText(
         severity: "error",
         code: "unsafe_numeric_id",
         rowNumber,
+        worksheetName,
         message: "Student ID must be stored as Text in Excel.",
       });
       return null;
     }
     const numberFormat = (cell.numFmt ?? "").trim().split(";")[0];
-    if (!/^0+$/.test(numberFormat)) {
+    if (/^0+$/.test(numberFormat)) {
+      return String(cell.value).padStart(numberFormat.length, "0");
+    }
+    if (cell.value < 10000) {
       issues.push({
         severity: "error",
         code: "unsafe_numeric_id",
         rowNumber,
+        worksheetName,
         message: "Numeric Student ID has no recoverable zero-padding; format the column as Text.",
       });
       return null;
     }
-    return String(cell.value).padStart(numberFormat.length, "0");
+    return String(cell.value);
   }
 
   const value = cell.text.trim();
@@ -215,6 +437,7 @@ function studentIdText(
       severity: "error",
       code: "missing_student_id",
       rowNumber,
+      worksheetName,
       message: "Student ID is required.",
     });
     return null;
@@ -223,7 +446,10 @@ function studentIdText(
 }
 
 function validateMapping(headers: WorkbookHeader[], mapping: StudentColumnMapping): void {
-  const selected = [mapping.idColumn, mapping.fullNameColumn, mapping.classColumn];
+  const selected = [mapping.idColumn, mapping.fullNameColumn];
+  if (mapping.classColumn && mapping.classColumn > 0) {
+    selected.push(mapping.classColumn);
+  }
   if (selected.some((column) => !Number.isInteger(column) || column < 1)) {
     throw new StudentWorkbookError("invalid_mapping", "All required columns must be selected.");
   }
@@ -243,13 +469,50 @@ export async function parseStudentWorkbook(
   buffer: Buffer,
   mapping: StudentColumnMapping,
 ): Promise<ParsedWorkbook> {
-  const { headerRow, dataRows } = await loadWorkbook(buffer);
-  const headers = worksheetHeaders(headerRow);
-  validateMapping(headers, mapping);
+  const workbook = await loadWorkbook(buffer);
+  const worksheetInspections: WorksheetInspection[] = [];
+  const allHeaders: WorkbookHeader[] = [];
+  const headerLabels = new Set<string>();
+  const parsedSheets: ParsedSheetData[] = [];
+  let totalDataRowCount = 0;
+
+  for (const worksheet of workbook.worksheets) {
+    const sheetData = parseWorksheetStructure(worksheet);
+    totalDataRowCount += sheetData.dataRows.length;
+
+    if (totalDataRowCount > STUDENT_IMPORT_MAX_ROWS) {
+      throw new StudentWorkbookError(
+        "row_limit",
+        `The workbook exceeds the ${STUDENT_IMPORT_MAX_ROWS}-row limit.`,
+      );
+    }
+
+    parsedSheets.push(sheetData);
+    worksheetInspections.push({
+      name: worksheet.name,
+      className: sheetData.detectedClasses.join(", ") || null,
+      totalRows: sheetData.dataRows.length,
+      headers: sheetData.headers,
+    });
+
+    for (const header of sheetData.headers) {
+      if (!headerLabels.has(header.label)) {
+        headerLabels.add(header.label);
+        allHeaders.push(header);
+      }
+    }
+  }
+
+  const consolidatedHeaders = allHeaders.length > 0 ? allHeaders : worksheetInspections[0].headers;
+  validateMapping(consolidatedHeaders, mapping);
 
   const issues: StudentImportIssue[] = [];
-  const selectedColumns = new Set([mapping.idColumn, mapping.fullNameColumn, mapping.classColumn]);
-  for (const header of headers) {
+  const selectedColumns = new Set([mapping.idColumn, mapping.fullNameColumn]);
+  if (mapping.classColumn && mapping.classColumn > 0) {
+    selectedColumns.add(mapping.classColumn);
+  }
+
+  for (const header of consolidatedHeaders) {
     if (!selectedColumns.has(header.column)) {
       issues.push({
         severity: "warning",
@@ -260,66 +523,103 @@ export async function parseStudentWorkbook(
   }
 
   const rows: ParsedStudentRow[] = [];
-  for (const row of dataRows) {
-    const idSource = studentIdText(row.getCell(mapping.idColumn), row.number, issues);
-    const fullName = requiredText(
-      row.getCell(mapping.fullNameColumn),
-      "Full Name",
-      row.number,
-      issues,
-    );
-    const className = requiredText(
-      row.getCell(mapping.classColumn),
-      "Class",
-      row.number,
-      issues,
-    );
-    if (!idSource || !fullName || !className) continue;
+  let globalRowNumber = 1;
 
-    let loginId: string;
-    try {
-      loginId = normalizeLoginId(idSource);
-    } catch {
-      issues.push({
-        severity: "error",
-        code: "invalid_student_id",
-        rowNumber: row.number,
-        message: "Student ID contains unsupported characters.",
+  for (const sheetData of parsedSheets) {
+    for (const { row, sectionClass } of sheetData.dataRows) {
+      const idSource = studentIdText(
+        row.getCell(mapping.idColumn),
+        row.number,
+        issues,
+        sheetData.worksheet.name,
+      );
+      const fullName = requiredText(
+        row.getCell(mapping.fullNameColumn),
+        "Full Name",
+        row.number,
+        issues,
+        sheetData.worksheet.name,
+      );
+
+      let className: string | null = null;
+      if (sectionClass) {
+        className = sectionClass;
+      } else if (mapping.classColumn && mapping.classColumn > 0) {
+        className = requiredText(
+          row.getCell(mapping.classColumn),
+          "Class",
+          row.number,
+          issues,
+          sheetData.worksheet.name,
+        );
+      } else {
+        issues.push({
+          severity: "error",
+          code: "missing_class",
+          rowNumber: row.number,
+          worksheetName: sheetData.worksheet.name,
+          message: `Class information is missing for row ${row.number} in worksheet "${sheetData.worksheet.name}".`,
+        });
+      }
+
+      if (!idSource || !fullName || !className) continue;
+
+      let loginId: string;
+      try {
+        loginId = normalizeLoginId(idSource);
+      } catch {
+        issues.push({
+          severity: "error",
+          code: "invalid_student_id",
+          rowNumber: row.number,
+          worksheetName: sheetData.worksheet.name,
+          message: "Student ID contains unsupported characters.",
+        });
+        continue;
+      }
+
+      rows.push({
+        rowNumber: globalRowNumber,
+        loginId,
+        fullName,
+        className,
+        nis: mapping.idType === "nis" ? loginId : null,
+        nisn: mapping.idType === "nisn" ? loginId : null,
+        worksheetName: sheetData.worksheet.name,
       });
-      continue;
+      globalRowNumber += 1;
     }
-
-    rows.push({
-      rowNumber: row.number,
-      loginId,
-      fullName,
-      className,
-      nis: mapping.idType === "nis" ? loginId : null,
-      nisn: mapping.idType === "nisn" ? loginId : null,
-    });
   }
 
-  const firstRowById = new Map<string, number>();
+  const firstRowById = new Map<string, { rowNumber: number; worksheetName?: string }>();
   for (const row of rows) {
-    const firstRow = firstRowById.get(row.loginId);
-    if (firstRow) {
+    const existing = firstRowById.get(row.loginId);
+    if (existing) {
+      const location = existing.worksheetName && existing.worksheetName !== row.worksheetName
+        ? `row ${existing.rowNumber} (${existing.worksheetName})`
+        : `row ${existing.rowNumber}`;
       issues.push({
         severity: "error",
         code: "duplicate_student_id",
         rowNumber: row.rowNumber,
         loginId: row.loginId,
-        message: `Student ID duplicates row ${firstRow}.`,
+        worksheetName: row.worksheetName,
+        message: `Student ID duplicates ${location}.`,
       });
     } else {
-      firstRowById.set(row.loginId, row.rowNumber);
+      firstRowById.set(row.loginId, {
+        rowNumber: row.rowNumber,
+        worksheetName: row.worksheetName,
+      });
     }
   }
 
   return {
     inspection: {
       fileHash: fileHash(buffer),
-      headers,
-      totalRows: dataRows.length,
+      headers: consolidatedHeaders,
+      totalRows: rows.length,
+      worksheets: worksheetInspections,
     },
     rows,
     issues,

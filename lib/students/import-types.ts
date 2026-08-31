@@ -6,7 +6,7 @@ export type StudentIdType = "nis" | "nisn";
 export type StudentColumnMapping = {
   idColumn: number;
   fullNameColumn: number;
-  classColumn: number;
+  classColumn?: number | null;
   idType: StudentIdType;
 };
 
@@ -15,10 +15,18 @@ export type WorkbookHeader = {
   label: string;
 };
 
+export type WorksheetInspection = {
+  name: string;
+  className: string | null;
+  totalRows: number;
+  headers: WorkbookHeader[];
+};
+
 export type WorkbookInspection = {
   fileHash: string;
   headers: WorkbookHeader[];
   totalRows: number;
+  worksheets?: WorksheetInspection[];
 };
 
 export type StudentImportIssue = {
@@ -27,6 +35,7 @@ export type StudentImportIssue = {
   message: string;
   rowNumber?: number;
   loginId?: string;
+  worksheetName?: string;
 };
 
 export type ParsedStudentRow = {
@@ -36,6 +45,7 @@ export type ParsedStudentRow = {
   className: string;
   nis: string | null;
   nisn: string | null;
+  worksheetName?: string;
 };
 
 export type StudentPreviewRow = ParsedStudentRow & {
@@ -52,6 +62,7 @@ export type StudentImportPreview = {
   unchangedCount: number;
   rows: StudentPreviewRow[];
   issues: StudentImportIssue[];
+  worksheets?: WorksheetInspection[];
 };
 
 export type StudentImportSummary = {
