@@ -59,6 +59,19 @@ a {
   box-shadow: var(--shadow);
 }
 
+.school-logo {
+  display: inline-block;
+  height: auto;
+  object-fit: contain;
+  vertical-align: middle;
+}
+
+.auth-brand {
+  display: flex;
+  align-items: center;
+  margin-bottom: 1.25rem;
+}
+
 .brand-mark {
   width: 3rem;
   height: 3rem;
@@ -242,6 +255,10 @@ h2 {
 .sidebar-brand .brand-mark {
   margin: 0;
   background: rgba(255, 255, 255, 0.14);
+}
+
+.sidebar-brand .school-logo {
+  flex-shrink: 0;
 }
 
 .nav-list {

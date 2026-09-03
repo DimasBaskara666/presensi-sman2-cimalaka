@@ -10,6 +10,11 @@ export const metadata: Metadata = {
     template: "%s | Presensi SMAN 2 Cimalaka",
   },
   description: "Sistem presensi siswa berbasis QR untuk SMAN 2 Cimalaka.",
+  icons: {
+    icon: "/logo/logo-color.png",
+    shortcut: "/logo/logo-color.png",
+    apple: "/logo/logo-color.png",
+  },
   openGraph: {
     title: "Presensi SMAN 2 Cimalaka",
     description: "Sistem presensi siswa berbasis QR untuk SMAN 2 Cimalaka.",

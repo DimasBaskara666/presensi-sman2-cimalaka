@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { SchoolLogo } from "@/components/school-logo";
 import { getCurrentPerson } from "@/lib/auth/current-person";
 import { ActivationForm } from "./activation-form";
 
@@ -12,7 +13,9 @@ export default async function ActivatePage() {
   return (
     <main className="auth-page">
       <section className="auth-card" aria-labelledby="activation-title">
-        <div className="brand-mark" aria-hidden="true">P</div>
+        <div className="auth-brand">
+          <SchoolLogo variant="color" height={54} priority />
+        </div>
         <p className="eyebrow">Aktivasi siswa</p>
         <h1 id="activation-title">Aktifkan akun Anda</h1>
         <p className="muted">

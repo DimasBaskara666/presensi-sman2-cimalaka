@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SchoolLogo } from "@/components/school-logo";
 import { logoutAction } from "@/app/logout-action";
 import { hasCapability } from "@/lib/auth/permissions";
 import { requireCurrentPerson } from "@/lib/auth/require-person";
@@ -18,8 +19,8 @@ export default async function ProtectedLayout({ children }: Readonly<{ children:
     <div className="shell">
       <aside className="sidebar">
         <div className="sidebar-brand">
-          <div className="brand-mark" aria-hidden="true">P</div>
-          <span>Presensi Sekolah</span>
+          <SchoolLogo variant="white" height={36} alt="SMAN 2 Cimalaka" />
+          <span>Presensi SMAN 2 Cimalaka</span>
         </div>
 
         <nav className="nav-list" aria-label="Navigasi utama">

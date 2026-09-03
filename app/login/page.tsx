@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { SchoolLogo } from "@/components/school-logo";
 import { getCurrentPerson } from "@/lib/auth/current-person";
 import { shouldRequirePasswordChange } from "@/lib/auth/password-policy";
 import { loginAction } from "./actions";
@@ -25,7 +26,9 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   return (
     <main className="auth-page">
       <section className="auth-card" aria-labelledby="login-title">
-        <div className="brand-mark" aria-hidden="true">P</div>
+        <div className="auth-brand">
+          <SchoolLogo variant="color" height={54} priority />
+        </div>
         <p className="eyebrow">SMAN 2 Cimalaka</p>
         <h1 id="login-title">Masuk ke Presensi</h1>
         <p className="muted">Gunakan ID sekolah dan kata sandi akun Anda.</p>
