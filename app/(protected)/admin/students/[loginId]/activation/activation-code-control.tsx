@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useRef, useState } from "react";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import {
   generateActivationCodeAction,
   type ActivationCodeActionState,
@@ -16,6 +17,21 @@ export function ActivationCodeControl({
   hasActivationCode: boolean;
 }) {
   const [state, formAction, pending] = useActionState(generateActivationCodeAction, initialState);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  function handleButtonClick() {
+    if (hasActivationCode) {
+      setShowConfirm(true);
+      return;
+    }
+    formRef.current?.requestSubmit();
+  }
+
+  function handleConfirm() {
+    setShowConfirm(false);
+    formRef.current?.requestSubmit();
+  }
 
   return (
     <div className="activation-code-panel">
@@ -29,24 +45,40 @@ export function ActivationCodeControl({
         </p>
       )}
 
-      <form
-        action={formAction}
-        onSubmit={(e) => {
-          if (hasActivationCode) {
-            const ok = window.confirm(
-              "Buat ulang kode aktivasi?\n\nKode lama yang belum dipakai akan langsung hangus dan tidak dapat digunakan lagi."
-            );
-            if (!ok) {
-              e.preventDefault();
-            }
-          }
-        }}
-      >
+      <form ref={formRef} action={formAction}>
         <input type="hidden" name="login_id" value={loginId} />
-        <button className="button button-primary" type="submit" disabled={pending}>
+        <button
+          className="button button-primary"
+          type="button"
+          disabled={pending}
+          onClick={handleButtonClick}
+        >
           {pending ? "Membuat…" : hasActivationCode ? "Buat Ulang Kode (Reset)" : "Buat Kode Aktivasi"}
         </button>
       </form>
+
+      {hasActivationCode && (
+        <ConfirmDialog
+          isOpen={showConfirm}
+          title="Buat Ulang Kode Aktivasi?"
+          description={
+            <>
+              <p>
+                Siswa dengan ID <strong>{loginId}</strong> sudah memiliki kode aktivasi aktif.
+              </p>
+              <p style={{ marginTop: "0.5rem" }}>
+                Kode lama yang belum dipakai akan langsung hangus dan tidak dapat digunakan lagi. Apakah Anda yakin ingin membuat ulang kode aktivasi?
+              </p>
+            </>
+          }
+          confirmLabel="Ya, Buat Ulang"
+          cancelLabel="Batal"
+          variant="danger"
+          isPending={pending}
+          onConfirm={handleConfirm}
+          onCancel={() => setShowConfirm(false)}
+        />
+      )}
 
       {state.status === "error" ? <p className="alert alert-error" role="alert">{state.message}</p> : null}
       {state.status === "revealed" ? (

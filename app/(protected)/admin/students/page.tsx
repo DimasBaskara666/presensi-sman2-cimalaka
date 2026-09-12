@@ -147,6 +147,7 @@ export default async function StudentsPage({ searchParams }: StudentPageProps) {
                       </Link>
                       <StudentToggleButton
                         loginId={student.loginId}
+                        studentName={student.fullName}
                         isActive={student.isActive}
                         action={setStudentActiveAction}
                       />
