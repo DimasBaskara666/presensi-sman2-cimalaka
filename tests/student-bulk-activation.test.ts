@@ -265,3 +265,24 @@ test("bulk activation routes and UI enforce admin role protection and server-sid
   assert.doesNotMatch(bulkPage, /SUPABASE_SERVICE_ROLE_KEY|ACTIVATION_CODE_PEPPER/);
   assert.doesNotMatch(pdfRoute, /console\./);
 });
+
+test("activation PDF matches attendance report visual design and layout conventions", async () => {
+  const pdfSource = await readFile(
+    new URL("../lib/students/student-activation-pdf.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(pdfSource, /layout:\s*"landscape"/);
+  assert.match(pdfSource, /size:\s*"A4"/);
+  assert.match(pdfSource, /MARGIN\s*=\s*36/);
+  assert.match(pdfSource, /TABLE_HEADER_HEIGHT\s*=\s*23/);
+  assert.match(pdfSource, /TABLE_ROW_HEIGHT\s*=\s*24/);
+  assert.match(pdfSource, /#126b51/);
+  assert.match(pdfSource, /#eef6f3/);
+  assert.match(pdfSource, /#d9e4df/);
+  assert.match(pdfSource, /#17231f/);
+  assert.match(pdfSource, /#60706a/);
+  assert.match(pdfSource, /doc\.bufferedPageRange\(\)/);
+  assert.match(pdfSource, /Sistem Presensi Sekolah \| Halaman/);
+});
+

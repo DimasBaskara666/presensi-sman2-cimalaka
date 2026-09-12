@@ -8,10 +8,18 @@ export type StudentActivationPdfInput = {
   filteredClass?: string;
 };
 
+type TableColumn = {
+  label: string;
+  width: number;
+  align?: "left" | "center" | "right";
+  isCode?: boolean;
+  value: (row: BulkActivationSlip, index: number) => string;
+};
+
 const MARGIN = 36;
-const SLIP_HEIGHT = 118;
-const SLIP_GAP = 12;
-const FOOTER_SPACE = 25;
+const TABLE_HEADER_HEIGHT = 23;
+const TABLE_ROW_HEIGHT = 24;
+const FOOTER_SPACE = 28;
 
 function safeText(value: string): string {
   return Array.from(value, (character) => {
@@ -45,135 +53,107 @@ function formatExpiryDate(isoDateString: string): string {
       hour: "2-digit",
       minute: "2-digit",
       hourCycle: "h23",
-    }).format(date).replace(".", ":");
+    }).format(date).replace(".", ":") + " WIB";
   } catch {
     return isoDateString;
   }
 }
 
-function drawClassHeader(
+function columns(contentWidth: number, input: StudentActivationPdfInput): TableColumn[] {
+  const fixedWidth = 28 + 68 + 175 + 50 + 215 + 95;
+  return [
+    { label: "No", width: 28, align: "center", value: (_, index) => String(index + 1) },
+    { label: "ID / NIS", width: 68, value: (row) => row.loginId },
+    { label: "Nama Siswa", width: 175, value: (row) => row.fullName },
+    { label: "Kelas", width: 50, align: "center", value: (row) => row.className },
+    { label: "Kode Aktivasi", width: 215, isCode: true, value: (row) => row.activationCode },
+    { label: "Masa Berlaku", width: 95, value: (row) => formatExpiryDate(row.expiresAt) },
+    { label: "Tautan Aktivasi", width: contentWidth - fixedWidth, value: () => input.activationUrl },
+  ];
+}
+
+function drawDocumentHeader(
   doc: PDFKit.PDFDocument,
+  input: StudentActivationPdfInput,
   className: string,
   classTotal: number,
-  generatedAt: Date,
   continuation: boolean,
 ): number {
   const contentWidth = doc.page.width - MARGIN * 2;
-  doc.fillColor("#126b51").font("Helvetica-Bold").fontSize(continuation ? 11 : 14)
+  doc.fillColor("#126b51").font("Helvetica-Bold").fontSize(continuation ? 12 : 17)
     .text("SMAN 2 Cimalaka - Slip Aktivasi Akun Siswa", MARGIN, MARGIN, { width: contentWidth });
-
-  let y = MARGIN + (continuation ? 16 : 22);
+  let y = MARGIN + (continuation ? 20 : 27);
   doc.fillColor("#17231f").font("Helvetica").fontSize(8.5)
-    .text(`Kelas: ${safeText(className)}${continuation ? " (Lanjutan)" : ""}`, MARGIN, y);
-
-  doc.text(`Dibuat: ${generatedTimestamp(generatedAt)} WIB`, MARGIN + contentWidth / 2, y, {
-    width: contentWidth / 2,
-    align: "right",
-  });
-
-  y += 12;
-  doc.text(`Total Siswa di Kelas Ini: ${classTotal}`, MARGIN, y);
-  y += 14;
-
-  return y;
+    .text(`Kelas: Kelas ${safeText(className)}${continuation ? " (Lanjutan)" : ""}`, MARGIN, y);
+  y += 13;
+  doc.text(`Tautan Aktivasi: ${safeText(input.activationUrl)}`, MARGIN, y);
+  if (!continuation) {
+    doc.text(`Dibuat: ${generatedTimestamp(input.generatedAt)} WIB`, MARGIN + contentWidth / 2, y - 13, {
+      width: contentWidth / 2,
+      align: "right",
+    });
+    doc.text(`Jumlah data: ${classTotal} siswa`, MARGIN + contentWidth / 2, y, {
+      width: contentWidth / 2,
+      align: "right",
+    });
+    y += 13;
+    doc.fillColor("#60706a").font("Helvetica").fontSize(7.5)
+      .text(
+        "Petunjuk: 1. Buka tautan aktivasi  |  2. Masukkan NIS & kode aktivasi  |  3. Buat kata sandi mandiri (min. 10 karakter)",
+        MARGIN,
+        y,
+        { width: contentWidth },
+      );
+  }
+  return y + 18;
 }
 
-function drawSlip(
+function drawTableHeader(doc: PDFKit.PDFDocument, tableColumns: TableColumn[], y: number): number {
+  let x = MARGIN;
+  doc.save().rect(MARGIN, y, doc.page.width - MARGIN * 2, TABLE_HEADER_HEIGHT).fill("#126b51").restore();
+  doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(7);
+  for (const column of tableColumns) {
+    doc.text(column.label, x + 4, y + 6, {
+      width: column.width - 8,
+      height: TABLE_HEADER_HEIGHT - 8,
+      ellipsis: true,
+      lineBreak: false,
+      align: column.align ?? "left",
+    });
+    x += column.width;
+  }
+  return y + TABLE_HEADER_HEIGHT;
+}
+
+function drawRow(
   doc: PDFKit.PDFDocument,
+  tableColumns: TableColumn[],
   slip: BulkActivationSlip,
-  activationUrl: string,
+  index: number,
   y: number,
-  contentWidth: number,
-): void {
-  doc.save()
-    .rect(MARGIN, y, contentWidth, SLIP_HEIGHT)
-    .fillAndStroke("#ffffff", "#d9e4df")
-    .restore();
-
-  doc.save()
-    .rect(MARGIN, y, contentWidth, 16)
-    .fill("#f2f8f5")
-    .restore();
-
-  doc.fillColor("#126b51").font("Helvetica-Bold").fontSize(7)
-    .text("SMAN 2 CIMALAKA  •  SLIP AKTIVASI AKUN SISWA RESMI", MARGIN + 8, y + 5);
-
-  doc.save()
-    .strokeColor("#e2ebe7")
-    .lineWidth(0.5)
-    .moveTo(MARGIN, y + 16)
-    .lineTo(MARGIN + contentWidth, y + 16)
-    .stroke()
-    .restore();
-
-  const leftX = MARGIN + 8;
-  doc.fillColor("#17231f").font("Helvetica-Bold").fontSize(9)
-    .text(safeText(slip.fullName), leftX, y + 22, { width: 290, ellipsis: true });
-
-  doc.fillColor("#60706a").font("Helvetica").fontSize(8)
-    .text("NIS: ", leftX, y + 36, { continued: true })
-    .fillColor("#17231f").font("Helvetica-Bold")
-    .text(safeText(slip.loginId), { continued: true })
-    .fillColor("#60706a").font("Helvetica")
-    .text("   |   Kelas: ", { continued: true })
-    .fillColor("#17231f").font("Helvetica-Bold")
-    .text(safeText(slip.className));
-
-  doc.fillColor("#60706a").font("Helvetica").fontSize(7.5)
-    .text("Tautan Aktivasi: ", leftX, y + 49, { continued: true })
-    .fillColor("#126b51").font("Helvetica-Bold")
-    .text(safeText(activationUrl), { width: 290, ellipsis: true });
-
-  const codeBoxX = MARGIN + 310;
-  const codeBoxY = y + 20;
-  const codeBoxWidth = contentWidth - 318;
-  const codeBoxHeight = 44;
-
-  doc.save()
-    .roundedRect(codeBoxX, codeBoxY, codeBoxWidth, codeBoxHeight, 3)
-    .fillAndStroke("#eef6f3", "#126b51")
-    .restore();
-
-  doc.fillColor("#126b51").font("Helvetica-Bold").fontSize(6.5)
-    .text("KODE AKTIVASI (SATU KALI PAKAI)", codeBoxX, codeBoxY + 4, {
-      width: codeBoxWidth,
-      align: "center",
+  alternate: boolean,
+): number {
+  if (alternate) {
+    doc.save().rect(MARGIN, y, doc.page.width - MARGIN * 2, TABLE_ROW_HEIGHT).fill("#eef6f3").restore();
+  }
+  doc.save().rect(MARGIN, y, doc.page.width - MARGIN * 2, TABLE_ROW_HEIGHT).strokeColor("#d9e4df").lineWidth(0.35).stroke().restore();
+  let x = MARGIN;
+  for (const column of tableColumns) {
+    if (column.isCode) {
+      doc.fillColor("#17231f").font("Courier-Bold").fontSize(7.2);
+    } else {
+      doc.fillColor("#17231f").font("Helvetica").fontSize(6.8);
+    }
+    doc.text(safeText(column.value(slip, index)) || "-", x + 4, y + 5, {
+      width: column.width - 8,
+      height: TABLE_ROW_HEIGHT - 8,
+      ellipsis: true,
+      lineBreak: false,
+      align: column.align ?? "left",
     });
-
-  doc.fillColor("#17231f").font("Courier-Bold").fontSize(9.5)
-    .text(safeText(slip.activationCode), codeBoxX, codeBoxY + 14, {
-      width: codeBoxWidth,
-      align: "center",
-    });
-
-  doc.fillColor("#60706a").font("Helvetica").fontSize(6)
-    .text(`Berlaku s.d. ${formatExpiryDate(slip.expiresAt)} WIB`, codeBoxX, codeBoxY + 30, {
-      width: codeBoxWidth,
-      align: "center",
-    });
-
-  const instructionY = y + 70;
-  const instructionHeight = SLIP_HEIGHT - 70;
-  doc.save()
-    .rect(MARGIN, instructionY, contentWidth, instructionHeight)
-    .fill("#fafcfb")
-    .restore();
-
-  doc.save()
-    .strokeColor("#e2ebe7")
-    .lineWidth(0.5)
-    .moveTo(MARGIN, instructionY)
-    .lineTo(MARGIN + contentWidth, instructionY)
-    .stroke()
-    .restore();
-
-  doc.fillColor("#60706a").font("Helvetica").fontSize(6.8)
-    .text(
-      "Petunjuk Aktivasi: 1. Buka tautan aktivasi di peramban  •  2. Masukkan NIS dan Kode Aktivasi di atas  •  3. Buat kata sandi baru (minimal 10 karakter)  •  4. Gunakan NIS dan kata sandi baru tersebut untuk masuk ke sistem presensi.",
-      MARGIN + 8,
-      instructionY + 5,
-      { width: contentWidth - 16, lineGap: 1 },
-    );
+    x += column.width;
+  }
+  return y + TABLE_ROW_HEIGHT;
 }
 
 export async function generateStudentActivationPdf(
@@ -185,7 +165,7 @@ export async function generateStudentActivationPdf(
       bufferPages: true,
       compress: false,
       size: "A4",
-      layout: "portrait",
+      layout: "landscape",
       margins: { top: MARGIN, right: MARGIN, bottom: MARGIN, left: MARGIN },
       info: {
         Title: "Slip Aktivasi Akun Siswa - SMAN 2 Cimalaka",
@@ -216,47 +196,46 @@ export async function generateStudentActivationPdf(
 
     if (sortedClasses.length === 0) {
       doc.addPage();
-      const contentWidth = doc.page.width - MARGIN * 2;
-      drawClassHeader(doc, input.filteredClass ?? "Semua Kelas", 0, input.generatedAt, false);
-      doc.fillColor("#60706a").font("Helvetica").fontSize(10)
-        .text("Tidak ada data slip aktivasi untuk kelas yang dipilih.", MARGIN, MARGIN + 80, {
-          width: contentWidth,
+      const tableColumns = columns(doc.page.width - MARGIN * 2, input);
+      const headerBottom = drawDocumentHeader(doc, input, input.filteredClass ?? "Semua Kelas", 0, false);
+      const tableHeaderBottom = drawTableHeader(doc, tableColumns, headerBottom);
+      doc.fillColor("#60706a").font("Helvetica").fontSize(11)
+        .text("Tidak ada data slip aktivasi untuk filter yang dipilih.", MARGIN, tableHeaderBottom + 24, {
+          width: doc.page.width - MARGIN * 2,
           align: "center",
         });
     } else {
       for (const className of sortedClasses) {
         const classSlips = classMap.get(className)!;
-        let isContinuation = false;
 
-        doc.addPage();
-        const contentWidth = doc.page.width - MARGIN * 2;
-        const pageBottomLimit = doc.page.height - MARGIN - FOOTER_SPACE;
-        let currentY = drawClassHeader(doc, className, classSlips.length, input.generatedAt, isContinuation);
+        const addClassPage = (continuation: boolean) => {
+          doc.addPage();
+          const tableColumns = columns(doc.page.width - MARGIN * 2, input);
+          const headerBottom = drawDocumentHeader(doc, input, className, classSlips.length, continuation);
+          return { tableColumns, y: drawTableHeader(doc, tableColumns, headerBottom) };
+        };
 
-        for (let i = 0; i < classSlips.length; i += 1) {
-          const slip = classSlips[i];
-          if (currentY + SLIP_HEIGHT > pageBottomLimit) {
-            doc.addPage();
-            isContinuation = true;
-            currentY = drawClassHeader(doc, className, classSlips.length, input.generatedAt, isContinuation);
+        let page = addClassPage(false);
+
+        classSlips.forEach((slip, index) => {
+          const pageBottom = doc.page.height - MARGIN - FOOTER_SPACE;
+          if (page.y + TABLE_ROW_HEIGHT > pageBottom) {
+            page = addClassPage(true);
           }
-
-          drawSlip(doc, slip, input.activationUrl, currentY, contentWidth);
-          currentY += SLIP_HEIGHT + SLIP_GAP;
-        }
+          page.y = drawRow(doc, page.tableColumns, slip, index, page.y, index % 2 === 1);
+        });
       }
     }
 
     const range = doc.bufferedPageRange();
     for (let index = range.start; index < range.start + range.count; index += 1) {
       doc.switchToPage(index);
-      const contentWidth = doc.page.width - MARGIN * 2;
       doc.fillColor("#60706a").font("Helvetica").fontSize(7)
         .text(
-          `Sistem Presensi SMAN 2 Cimalaka | Halaman ${index - range.start + 1} dari ${range.count}`,
+          `Sistem Presensi Sekolah | Halaman ${index - range.start + 1} dari ${range.count}`,
           MARGIN,
-          doc.page.height - MARGIN - 10,
-          { width: contentWidth, align: "center", lineBreak: false },
+          doc.page.height - MARGIN - 12,
+          { width: doc.page.width - MARGIN * 2, align: "center", lineBreak: false },
         );
     }
 
