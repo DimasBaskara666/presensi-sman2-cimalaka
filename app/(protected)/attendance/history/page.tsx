@@ -128,7 +128,7 @@ export default async function AttendanceHistoryPage({ searchParams }: Attendance
               <h2>{formatAttendanceHistoryDate(filter.startDate)}{filter.startDate !== filter.endDate ? ` - ${formatAttendanceHistoryDate(filter.endDate)}` : ""}</h2>
               <p className="muted">Menampilkan {startRow}-{endRow} dari {view.total} catatan.</p>
             </div>
-            <a className="button button-secondary history-pdf-button" href={pdfUrl}>Unduh PDF</a>
+            <a className="button button-secondary history-pdf-button" href={pdfUrl} aria-label="Unduh laporan presensi format PDF">Unduh PDF</a>
           </div>
 
           {view.rows.length > 0 ? (
@@ -159,11 +159,11 @@ export default async function AttendanceHistoryPage({ searchParams }: Attendance
           {view.totalPages > 1 ? (
             <nav className="history-pagination" aria-label="Halaman riwayat presensi">
               {view.page > 1 ? (
-                <Link className="button button-secondary" href={`/attendance/history?${filterParams(filter, view.page - 1)}`}>Sebelumnya</Link>
+                <Link className="button button-secondary" href={`/attendance/history?${filterParams(filter, view.page - 1)}`} aria-label="Ke halaman sebelumnya">Sebelumnya</Link>
               ) : <span />}
               <span>Halaman {view.page} dari {view.totalPages}</span>
               {view.page < view.totalPages ? (
-                <Link className="button button-secondary" href={`/attendance/history?${filterParams(filter, view.page + 1)}`}>Berikutnya</Link>
+                <Link className="button button-secondary" href={`/attendance/history?${filterParams(filter, view.page + 1)}`} aria-label="Ke halaman berikutnya">Berikutnya</Link>
               ) : <span />}
             </nav>
           ) : null}

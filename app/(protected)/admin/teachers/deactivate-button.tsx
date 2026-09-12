@@ -4,11 +4,12 @@ import { useRef } from "react";
 
 type TeacherToggleButtonProps = {
   teacherId: string;
+  teacherName?: string;
   isActive: boolean;
   action: (formData: FormData) => Promise<void>;
 };
 
-export function TeacherToggleButton({ teacherId, isActive, action }: TeacherToggleButtonProps) {
+export function TeacherToggleButton({ teacherId, teacherName, isActive, action }: TeacherToggleButtonProps) {
   const formRef = useRef<HTMLFormElement>(null);
 
   function handleClick() {
@@ -28,6 +29,7 @@ export function TeacherToggleButton({ teacherId, isActive, action }: TeacherTogg
       <button
         className={`button ${isActive ? "button-danger" : "button-secondary"}`}
         type="button"
+        aria-label={`${isActive ? "Nonaktifkan" : "Aktifkan"} akun guru${teacherName ? ` ${teacherName}` : ""}`}
         onClick={handleClick}
       >
         {isActive ? "Nonaktifkan" : "Aktifkan"}

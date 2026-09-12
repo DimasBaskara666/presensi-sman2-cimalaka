@@ -141,6 +141,7 @@ export default async function StudentsPage({ searchParams }: StudentPageProps) {
                       <Link
                         className="button button-secondary button-small"
                         href={`/admin/students/${encodeURIComponent(student.loginId)}/activation`}
+                        aria-label={`Aktivasi akun siswa ${student.fullName} (${student.loginId})`}
                       >
                         Aktivasi
                       </Link>
@@ -197,13 +198,13 @@ export default async function StudentsPage({ searchParams }: StudentPageProps) {
         ) : null}
 
         {totalPages > 1 ? (
-          <div className="pagination">
+          <nav className="pagination" aria-label="Navigasi halaman daftar siswa">
             <span className="pagination-info">
               Halaman {page} dari {totalPages}
             </span>
             <div className="pagination-controls">
               {page > 1 ? (
-                <Link className="button button-secondary button-small" href={pageUrl(page - 1)}>
+                <Link className="button button-secondary button-small" href={pageUrl(page - 1)} aria-label="Ke halaman sebelumnya">
                   &larr; Sebelumnya
                 </Link>
               ) : null}
@@ -224,18 +225,20 @@ export default async function StudentsPage({ searchParams }: StudentPageProps) {
                       key={item}
                       className={`button button-small ${item === page ? "button-primary" : "button-secondary"}`}
                       href={pageUrl(item)}
+                      aria-label={`Ke halaman ${item}`}
+                      aria-current={item === page ? "page" : undefined}
                     >
                       {item}
                     </Link>
                   )
                 )}
               {page < totalPages ? (
-                <Link className="button button-secondary button-small" href={pageUrl(page + 1)}>
+                <Link className="button button-secondary button-small" href={pageUrl(page + 1)} aria-label="Ke halaman berikutnya">
                   Berikutnya &rarr;
                 </Link>
               ) : null}
             </div>
-          </div>
+          </nav>
         ) : null}
       </section>
     </>

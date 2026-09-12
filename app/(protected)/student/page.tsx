@@ -103,7 +103,7 @@ export default async function StudentPage() {
 
           <div className="student-home-actions">
             <Link className="button button-primary student-scan-primary" href="/student/scan">
-              Scan QR Presensi
+              Pindai QR Presensi
             </Link>
             <Link className="button button-secondary" href="/attendance/history">
               Lihat Riwayat Saya

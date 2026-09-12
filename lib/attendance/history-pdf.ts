@@ -77,10 +77,10 @@ function drawDocumentHeader(
   continuation: boolean,
 ): number {
   const contentWidth = doc.page.width - MARGIN * 2;
-  doc.fillColor("#126b51").font("Helvetica-Bold").fontSize(continuation ? 12 : 17)
+  doc.fillColor("#0369a1").font("Helvetica-Bold").fontSize(continuation ? 12 : 17)
     .text("SMAN 2 Cimalaka - Laporan Presensi Siswa", MARGIN, MARGIN, { width: contentWidth });
   let y = MARGIN + (continuation ? 20 : 27);
-  doc.fillColor("#17231f").font("Helvetica").fontSize(8.5)
+  doc.fillColor("#0f172a").font("Helvetica").fontSize(8.5)
     .text(`Periode: ${reportPeriod(input.filter)}`, MARGIN, y);
   y += 13;
   doc.text(`Filter: ${classScope(input.filter, input.viewerRole)}`, MARGIN, y);
@@ -99,7 +99,7 @@ function drawDocumentHeader(
 
 function drawTableHeader(doc: PDFKit.PDFDocument, tableColumns: TableColumn[], y: number): number {
   let x = MARGIN;
-  doc.save().rect(MARGIN, y, doc.page.width - MARGIN * 2, TABLE_HEADER_HEIGHT).fill("#126b51").restore();
+  doc.save().rect(MARGIN, y, doc.page.width - MARGIN * 2, TABLE_HEADER_HEIGHT).fill("#0369a1").restore();
   doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(7);
   for (const column of tableColumns) {
     doc.text(column.label, x + 4, y + 6, {
@@ -121,11 +121,11 @@ function drawRow(
   alternate: boolean,
 ): number {
   if (alternate) {
-    doc.save().rect(MARGIN, y, doc.page.width - MARGIN * 2, TABLE_ROW_HEIGHT).fill("#eef6f3").restore();
+    doc.save().rect(MARGIN, y, doc.page.width - MARGIN * 2, TABLE_ROW_HEIGHT).fill("#f8fafc").restore();
   }
-  doc.save().rect(MARGIN, y, doc.page.width - MARGIN * 2, TABLE_ROW_HEIGHT).strokeColor("#d9e4df").lineWidth(0.35).stroke().restore();
+  doc.save().rect(MARGIN, y, doc.page.width - MARGIN * 2, TABLE_ROW_HEIGHT).strokeColor("#e2e8f0").lineWidth(0.35).stroke().restore();
   let x = MARGIN;
-  doc.fillColor("#17231f").font("Helvetica").fontSize(6.8);
+  doc.fillColor("#0f172a").font("Helvetica").fontSize(6.8);
   for (const column of tableColumns) {
     doc.text(safeText(column.value(row)) || "-", x + 4, y + 5, {
       width: column.width - 8,

@@ -246,7 +246,7 @@ export default function StudentImportWorkflow() {
             </div>
           </div>
           {!mappingComplete && Object.values(mapping).some(Boolean) ? (
-            <p className="alert alert-error">
+            <p className="alert alert-error" role="alert">
               {allSheetsHaveClass
                 ? "Pilih kolom ID Siswa, kolom Nama Lengkap, dan tipe ID."
                 : "Pilih kolom ID Siswa, kolom Nama Lengkap, kolom Kelas, dan tipe ID."}
@@ -290,7 +290,7 @@ export default function StudentImportWorkflow() {
           {blockingErrors.length ? (
             <IssueList title="Galat Kritis (Blokir)" issues={blockingErrors} tone="error" />
           ) : (
-            <p className="alert alert-success">Tidak ada galat pemblokir. Data siswa siap untuk diimpor.</p>
+            <p className="alert alert-success" role="status">Tidak ada galat pemblokir. Data siswa siap untuk diimpor.</p>
           )}
           {warnings.length ? <IssueList title="Peringatan" issues={warnings} tone="warning" /> : null}
 
@@ -341,7 +341,7 @@ export default function StudentImportWorkflow() {
         <section className="card" aria-labelledby="complete-title">
           <p className="step-label">Selesai</p>
           <h2 id="complete-title">Roster Siswa Berhasil Diimpor</h2>
-          <p className="alert alert-success">Proses impor selesai dengan sukses.</p>
+          <p className="alert alert-success" role="status">Proses impor selesai dengan sukses.</p>
           <div className="summary-grid">
             <Summary label="Ditambahkan" value={summary.insertedCount} />
             <Summary label="Diperbarui" value={summary.updatedCount} />
@@ -404,7 +404,7 @@ function IssueList({
   tone: "error" | "warning";
 }) {
   return (
-    <div className={`issue-list issue-list-${tone}`}>
+    <div className={`issue-list issue-list-${tone}`} role={tone === "error" ? "alert" : "region"} aria-label={title}>
       <h3>{title}</h3>
       <ul>
         {issues.slice(0, 100).map((issue, index) => (

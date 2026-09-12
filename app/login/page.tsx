@@ -35,7 +35,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
         {errorMessage ? <p className="alert alert-error" role="alert">{errorMessage}</p> : null}
         {status === "activated" ? (
-          <p className="alert alert-success">Akun sudah aktif. Silakan masuk menggunakan kata sandi baru.</p>
+          <p className="alert alert-success" role="status">Akun sudah aktif. Silakan masuk menggunakan kata sandi baru.</p>
         ) : null}
 
         <form action={loginAction} className="form-stack">

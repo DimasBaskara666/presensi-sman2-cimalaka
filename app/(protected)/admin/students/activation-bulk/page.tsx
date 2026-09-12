@@ -16,7 +16,7 @@ export default async function BulkActivationPage() {
           <p className="eyebrow">Khusus administrator</p>
           <h1>Aktivasi Massal &amp; Cetak Slip Siswa</h1>
           <p className="muted">
-            Generate dan unduh slip kode aktivasi untuk dibagikan kepada siswa atau wali kelas.
+            Buat dan unduh slip kode aktivasi untuk dibagikan kepada siswa atau wali kelas.
           </p>
         </div>
         <div className="page-actions">
@@ -57,7 +57,7 @@ export default async function BulkActivationPage() {
       </section>
 
       <section className="card">
-        <h2>Generate &amp; Unduh Slip Aktivasi</h2>
+        <h2>Buat &amp; Unduh Slip Aktivasi</h2>
         <p className="muted">
           Pilih kelas untuk mencetak slip per kelas, atau pilih semua kelas untuk mencetak slip seluruh sekolah sekaligus.
         </p>

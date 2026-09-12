@@ -130,7 +130,7 @@ export function SharedQrManager({
         {session.active && session.imageDataUrl && session.expiresAt ? (
           <div className="admin-qr-image-panel">
             <Image src={session.imageDataUrl} alt="QR presensi sekolah yang sedang aktif" width={1024} height={1024} unoptimized priority />
-            <p>Pindai menggunakan kamera ponsel atau menu Scan QR pada akun siswa.</p>
+            <p>Pindai menggunakan kamera ponsel atau menu Pindai QR pada akun siswa.</p>
             <strong>Berganti otomatis pada {timestampLabel(session.expiresAt)} WIB</strong>
           </div>
         ) : (

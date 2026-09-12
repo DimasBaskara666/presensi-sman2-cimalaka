@@ -38,7 +38,7 @@ function getNavLinks(role: CurrentPerson["role"]): NavLinkItem[] {
   if (hasCapability(role, "read_own_attendance")) {
     links.push(
       { href: "/student", label: "Akun Siswa" },
-      { href: "/student/scan", label: "Scan QR" },
+      { href: "/student/scan", label: "Pindai QR" },
     );
   }
 
@@ -97,6 +97,10 @@ export function ResponsiveShell({
 
   return (
     <div className="shell">
+      <a href="#main-content" className="sr-only-focusable">
+        Lewati ke konten utama
+      </a>
+
       {/* Mobile Topbar */}
       <header className="mobile-topbar" aria-label="Bilah navigasi ponsel">
         <button
@@ -163,6 +167,7 @@ export function ResponsiveShell({
                 key={link.href}
                 className={`nav-link${active ? " is-active" : ""}`}
                 href={link.href}
+                aria-current={active ? "page" : undefined}
                 onClick={() => setDrawerOpen(false)}
               >
                 {link.label}
@@ -198,6 +203,7 @@ export function ResponsiveShell({
                 key={link.href}
                 className={`nav-link${active ? " is-active" : ""}`}
                 href={link.href}
+                aria-current={active ? "page" : undefined}
               >
                 {link.label}
               </Link>
@@ -215,7 +221,7 @@ export function ResponsiveShell({
       </aside>
 
       {/* Main Content */}
-      <main className="content">{children}</main>
+      <main className="content" id="main-content">{children}</main>
     </div>
   );
 }

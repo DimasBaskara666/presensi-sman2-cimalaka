@@ -158,7 +158,7 @@ export default async function AttendanceCorrectionsPage({ searchParams }: Attend
                     className: filter.className,
                     studentQuery: filter.studentQuery,
                     recordId: row.id,
-                  })}>Pilih untuk dikoreksi</Link>
+                  })} aria-label={`Pilih presensi ${row.studentName} untuk dikoreksi`}>Pilih untuk dikoreksi</Link>
                 </article>
               ))}
             </div>

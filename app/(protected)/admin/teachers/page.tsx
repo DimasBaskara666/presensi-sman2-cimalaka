@@ -125,6 +125,7 @@ export default async function TeacherManagementPage({
                   <div className="teacher-actions">
                     <TeacherToggleButton
                       teacherId={teacher.id}
+                      teacherName={teacher.fullName}
                       isActive={teacher.isActive}
                       action={setTeacherActiveAction}
                     />

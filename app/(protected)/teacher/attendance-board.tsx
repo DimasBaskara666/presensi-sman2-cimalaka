@@ -199,6 +199,7 @@ function AttendanceStudentRow({
                 className={`attendance-mark-button${selected ? " is-selected" : ""}`}
                 key={option.value}
                 type="button"
+                aria-label={`Tandai ${option.label} untuk ${student.fullName}`}
                 aria-pressed={selected}
                 disabled={pending || notPermitted || (selected && option.value === "present")}
                 onClick={() => mark(option.value)}
@@ -213,6 +214,7 @@ function AttendanceStudentRow({
           <button
             className="button button-secondary button-small attendance-checkout"
             type="button"
+            aria-label={`Catat pulang untuk ${student.fullName}`}
             disabled={pending}
             onClick={checkOut}
           >

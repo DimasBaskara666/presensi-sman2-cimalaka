@@ -30,7 +30,7 @@ export default async function ChangePasswordPage({ searchParams }: ChangePasswor
                 : "Kata sandi tidak dapat diubah. Periksa kata sandi saat ini dan kebijakan kata sandi."}
           </p>
         ) : null}
-        {status === "success" ? <p className="alert alert-success">Kata sandi berhasil diubah.</p> : null}
+        {status === "success" ? <p className="alert alert-success" role="status">Kata sandi berhasil diubah.</p> : null}
         {status === "partial" ? (
           <p className="alert alert-error" role="alert">
             Kata sandi sudah berubah, tetapi penanda profil belum diperbarui. Hubungi administrator.
@@ -53,7 +53,7 @@ export default async function ChangePasswordPage({ searchParams }: ChangePasswor
           <button className="button button-primary" type="submit">Simpan kata sandi</button>
         </form>
 
-        <div className="page-actions" style={{ marginTop: "1rem" }}>
+        <div className="page-actions password-actions">
           {!shouldRequirePasswordChange(person) ? (
             <Link className="button button-secondary" href="/dashboard">Kembali</Link>
           ) : null}

@@ -45,7 +45,7 @@ export function BulkActivationControl({
           className="button button-primary"
           download
         >
-          Generate &amp; Unduh Slip (Hanya yang Belum Punya Kode)
+          Buat &amp; Unduh Slip (Hanya yang Belum Punya Kode)
         </a>
 
         {!showRegenerateConfirm ? (
@@ -54,21 +54,13 @@ export function BulkActivationControl({
             className="button button-secondary"
             onClick={() => setShowRegenerateConfirm(true)}
           >
-            Generate Ulang Semua {selectedClass ? `Kelas ${selectedClass}` : "Siswa"} (Reset)
+            Buat Ulang Semua {selectedClass ? `Kelas ${selectedClass}` : "Siswa"} (Reset)
           </button>
         ) : (
           <div className="alert alert-warning bulk-confirm-alert">
             <span>
               <strong>Konfirmasi:</strong> Kode lama untuk siswa yang belum aktif akan hangus. Lanjutkan cetak ulang?
             </span>
-            <a
-              href={regenerateAllUrl}
-              className="button button-danger"
-              download
-              onClick={() => setShowRegenerateConfirm(false)}
-            >
-              Ya, Generate Ulang &amp; Unduh
-            </a>
             <button
               type="button"
               className="button button-secondary"
@@ -76,6 +68,14 @@ export function BulkActivationControl({
             >
               Batal
             </button>
+            <a
+              href={regenerateAllUrl}
+              className="button button-danger"
+              download
+              onClick={() => setShowRegenerateConfirm(false)}
+            >
+              Ya, Buat Ulang &amp; Unduh
+            </a>
           </div>
         )}
       </div>

@@ -28,6 +28,7 @@ export function StudentToggleButton({ loginId, isActive, action }: DeactivateBut
       <button
         className={`button button-small ${isActive ? "button-danger" : "button-secondary"}`}
         type="button"
+        aria-label={`${isActive ? "Nonaktifkan" : "Aktifkan"} akun siswa ${loginId}`}
         onClick={handleClick}
       >
         {isActive ? "Nonaktifkan" : "Aktifkan"}

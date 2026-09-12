@@ -43,9 +43,9 @@ export default async function StudentActivationAdminPage({
         </ul>
 
         {student.isActivated ? (
-          <p className="alert alert-success">Akun sudah diaktivasi. Kode baru tidak dapat dibuat.</p>
+          <p className="alert alert-success" role="status">Akun sudah diaktivasi. Kode baru tidak dapat dibuat.</p>
         ) : !student.isActive ? (
-          <p className="alert alert-error">Siswa nonaktif tidak dapat menerima kode aktivasi.</p>
+          <p className="alert alert-error" role="alert">Siswa nonaktif tidak dapat menerima kode aktivasi.</p>
         ) : (
           <ActivationCodeControl
             loginId={student.loginId}

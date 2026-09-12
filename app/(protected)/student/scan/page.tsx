@@ -18,7 +18,7 @@ export default async function StudentScanPage({ searchParams }: StudentScanPageP
       <header className="page-header attendance-page-header">
         <div>
           <p className="eyebrow">Presensi siswa</p>
-          <h1>Scan QR Presensi</h1>
+          <h1>Pindai QR Presensi</h1>
           <p className="muted">Identitas siswa diambil dari sesi masuk Anda, bukan dari QR.</p>
         </div>
         <span className="role-badge">Siswa</span>
