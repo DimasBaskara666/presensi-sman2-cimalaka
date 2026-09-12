@@ -43,7 +43,7 @@ export default async function BulkActivationPage() {
           </div>
           <div className="card" style={{ background: "var(--color-bg-subtle, #f5f8f7)", padding: "1rem" }}>
             <p className="muted" style={{ margin: 0, fontSize: "0.85rem" }}>Sudah Diaktivasi</p>
-            <p style={{ margin: "0.25rem 0 0", fontSize: "1.5rem", fontWeight: 700, color: "#126b51" }}>
+            <p style={{ margin: "0.25rem 0 0", fontSize: "1.5rem", fontWeight: 700, color: "var(--color-success-text)" }}>
               {stats.activatedCount}
             </p>
           </div>

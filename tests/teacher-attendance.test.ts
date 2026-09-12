@@ -122,7 +122,7 @@ test("mobile Teacher cards expose large status actions, selected state, notes, a
     assert.match(page, new RegExp(`key: "${key}"`));
   }
   assert.match(css, /\.attendance-summary[\s\S]*overflow-x: auto/);
-  assert.match(css, /\.attendance-mark-button[\s\S]*min-height: 3\.1rem/);
+  assert.match(css, /\.attendance-mark-button[\s\S]*min-height: 2\.75rem/);
   assert.match(css, /\.attendance-actions[\s\S]*grid-template-columns: repeat\(3/);
 });
 
