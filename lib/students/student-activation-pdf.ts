@@ -60,13 +60,13 @@ function formatExpiryDate(isoDateString: string): string {
 }
 
 function columns(contentWidth: number, input: StudentActivationPdfInput): TableColumn[] {
-  const fixedWidth = 28 + 68 + 175 + 50 + 215 + 95;
+  const fixedWidth = 28 + 68 + 220 + 50 + 110 + 95;
   return [
     { label: "No", width: 28, align: "center", value: (_, index) => String(index + 1) },
     { label: "ID / NIS", width: 68, value: (row) => row.loginId },
-    { label: "Nama Siswa", width: 175, value: (row) => row.fullName },
+    { label: "Nama Siswa", width: 220, value: (row) => row.fullName },
     { label: "Kelas", width: 50, align: "center", value: (row) => row.className },
-    { label: "Kode Aktivasi", width: 215, isCode: true, value: (row) => row.activationCode },
+    { label: "Kode Aktivasi", width: 110, isCode: true, value: (row) => row.activationCode },
     { label: "Masa Berlaku", width: 95, value: (row) => formatExpiryDate(row.expiresAt) },
     { label: "Tautan Aktivasi", width: contentWidth - fixedWidth, value: () => input.activationUrl },
   ];
@@ -80,10 +80,10 @@ function drawDocumentHeader(
   continuation: boolean,
 ): number {
   const contentWidth = doc.page.width - MARGIN * 2;
-  doc.fillColor("#126b51").font("Helvetica-Bold").fontSize(continuation ? 12 : 17)
+  doc.fillColor("#0369a1").font("Helvetica-Bold").fontSize(continuation ? 12 : 17)
     .text("SMAN 2 Cimalaka - Slip Aktivasi Akun Siswa", MARGIN, MARGIN, { width: contentWidth });
   let y = MARGIN + (continuation ? 20 : 27);
-  doc.fillColor("#17231f").font("Helvetica").fontSize(8.5)
+  doc.fillColor("#0f172a").font("Helvetica").fontSize(8.5)
     .text(`Kelas: Kelas ${safeText(className)}${continuation ? " (Lanjutan)" : ""}`, MARGIN, y);
   y += 13;
   doc.text(`Tautan Aktivasi: ${safeText(input.activationUrl)}`, MARGIN, y);
@@ -110,7 +110,7 @@ function drawDocumentHeader(
 
 function drawTableHeader(doc: PDFKit.PDFDocument, tableColumns: TableColumn[], y: number): number {
   let x = MARGIN;
-  doc.save().rect(MARGIN, y, doc.page.width - MARGIN * 2, TABLE_HEADER_HEIGHT).fill("#126b51").restore();
+  doc.save().rect(MARGIN, y, doc.page.width - MARGIN * 2, TABLE_HEADER_HEIGHT).fill("#0369a1").restore();
   doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(7);
   for (const column of tableColumns) {
     doc.text(column.label, x + 4, y + 6, {
@@ -134,15 +134,15 @@ function drawRow(
   alternate: boolean,
 ): number {
   if (alternate) {
-    doc.save().rect(MARGIN, y, doc.page.width - MARGIN * 2, TABLE_ROW_HEIGHT).fill("#eef6f3").restore();
+    doc.save().rect(MARGIN, y, doc.page.width - MARGIN * 2, TABLE_ROW_HEIGHT).fill("#f8fafc").restore();
   }
-  doc.save().rect(MARGIN, y, doc.page.width - MARGIN * 2, TABLE_ROW_HEIGHT).strokeColor("#d9e4df").lineWidth(0.35).stroke().restore();
+  doc.save().rect(MARGIN, y, doc.page.width - MARGIN * 2, TABLE_ROW_HEIGHT).strokeColor("#e2e8f0").lineWidth(0.35).stroke().restore();
   let x = MARGIN;
   for (const column of tableColumns) {
     if (column.isCode) {
-      doc.fillColor("#17231f").font("Courier-Bold").fontSize(7.2);
+      doc.fillColor("#0f172a").font("Courier-Bold").fontSize(8.5);
     } else {
-      doc.fillColor("#17231f").font("Helvetica").fontSize(6.8);
+      doc.fillColor("#0f172a").font("Helvetica").fontSize(6.8);
     }
     doc.text(safeText(column.value(slip, index)) || "-", x + 4, y + 5, {
       width: column.width - 8,

@@ -15,6 +15,8 @@ test("activation codes are random, digest-only verifiable, and expiring", () => 
   const first = generateActivationCode(24, now);
   const second = generateActivationCode(24, now);
   assert.notEqual(first.code, second.code);
+  assert.match(first.code, /^[0-9A-Z]{4}-[0-9A-Z]{4}$/);
+  assert.match(second.code, /^[0-9A-Z]{4}-[0-9A-Z]{4}$/);
   assert.equal(first.expiresAt, "2026-08-26T00:00:00.000Z");
   assert.equal(readActivationCodeExpiry(first.code)?.toISOString(), first.expiresAt);
 
@@ -22,6 +24,15 @@ test("activation codes are random, digest-only verifiable, and expiring", () => 
   assert.match(digest, /^[a-f0-9]{64}$/);
   assert.equal(
     verifyUnexpiredActivationCode(first.code, digest, "offline-test-pepper", now),
+    true,
+  );
+  assert.equal(
+    verifyUnexpiredActivationCode(
+      first.code.replace("-", "").toLowerCase(),
+      digest,
+      "offline-test-pepper",
+      now,
+    ),
     true,
   );
   assert.equal(

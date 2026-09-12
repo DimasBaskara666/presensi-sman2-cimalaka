@@ -45,7 +45,8 @@ export function ActivationForm() {
           type="text"
           autoComplete="one-time-code"
           autoCapitalize="characters"
-          maxLength={96}
+          maxLength={16}
+          placeholder="Contoh: 7K9P-4X2M"
           required
         />
       </div>

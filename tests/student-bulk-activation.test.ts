@@ -73,7 +73,7 @@ test("bulk activation generation creates 676 unique, valid tokens with HMAC dige
 
   for (let i = 0; i < count; i += 1) {
     const { code, expiresAt } = generateActivationCode(ttlHours, now);
-    assert.match(code, /^A1-[0-9A-Z]+-[A-F0-9]{32}$/);
+    assert.match(code, /^[0-9A-Z]{4}-[0-9A-Z]{4}$/);
     codes.add(code);
 
     const expiry = readActivationCodeExpiry(code);
@@ -172,7 +172,7 @@ test("activation PDF generation builds a valid PDF with class grouping and pagin
         loginId: `2425${className.replace(".", "")}${String(s).padStart(3, "0")}`,
         fullName: `Siswa ${className} Nomor ${s}`,
         className,
-        activationCode: `A1-EXPIRY-${String(s).padStart(32, "A")}`,
+        activationCode: `7K9P-${String(s).padStart(4, "0")}`,
         expiresAt: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString(),
       });
     }
@@ -209,7 +209,7 @@ test("activation PDF handles multi-page continuation for large classes", async (
       loginId: `2425101${String(s).padStart(3, "0")}`,
       fullName: `Murid Kelas Sepuluh Satu ${s}`,
       className: "10.1",
-      activationCode: `A1-TOKEN-${String(s).padStart(32, "F")}`,
+      activationCode: `9X2M-${String(s).padStart(4, "0")}`,
       expiresAt: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString(),
     });
   }
@@ -277,10 +277,10 @@ test("activation PDF matches attendance report visual design and layout conventi
   assert.match(pdfSource, /MARGIN\s*=\s*36/);
   assert.match(pdfSource, /TABLE_HEADER_HEIGHT\s*=\s*23/);
   assert.match(pdfSource, /TABLE_ROW_HEIGHT\s*=\s*24/);
-  assert.match(pdfSource, /#126b51/);
-  assert.match(pdfSource, /#eef6f3/);
-  assert.match(pdfSource, /#d9e4df/);
-  assert.match(pdfSource, /#17231f/);
+  assert.match(pdfSource, /#0369a1/);
+  assert.match(pdfSource, /#f8fafc/);
+  assert.match(pdfSource, /#e2e8f0/);
+  assert.match(pdfSource, /#0f172a/);
   assert.match(pdfSource, /#60706a/);
   assert.match(pdfSource, /doc\.bufferedPageRange\(\)/);
   assert.match(pdfSource, /Sistem Presensi Sekolah \| Halaman/);

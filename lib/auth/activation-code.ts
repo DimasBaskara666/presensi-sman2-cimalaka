@@ -1,8 +1,15 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
-const ACTIVATION_CODE_VERSION = "A1";
-const ACTIVATION_CODE_RANDOM_BYTES = 16;
-const ACTIVATION_CODE_PATTERN = /^A1-([0-9A-Z]+)-([A-F0-9]{32})$/;
+export const ACTIVATION_EPOCH_MS = 1767225600000; // 2026-01-01T00:00:00.000Z
+export const EXPIRY_BLOCK_MS = 2 * 60 * 60 * 1000; // 2-hour blocks
+export const ACTIVATION_CODE_EXPIRY_CHARS = 3;
+export const ACTIVATION_CODE_RANDOM_CHARS = 5;
+export const ACTIVATION_CODE_NORMALIZED_LENGTH = 8;
+export const MAX_EXPIRY_BLOCKS = 36 ** ACTIVATION_CODE_EXPIRY_CHARS; // 46,656 blocks (approx. 10.65 years)
+export const ACTIVATION_CODE_PATTERN = /^[0-9A-Z]{8}$/;
+
+const BASE36_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const recentCodes = new Set<string>();
 
 export type ClaimCandidate = {
   role: "admin" | "teacher" | "student";
@@ -20,14 +27,28 @@ export type ClaimEligibility =
   | "already_claimed"
   | "activation_code_missing";
 
-function normalizeActivationCode(code: string): string {
-  return code.trim().toUpperCase();
+export function normalizeActivationCode(code: string): string {
+  return code.trim().toUpperCase().replace(/[^0-9A-Z]/g, "");
 }
 
 export type GeneratedActivationCode = {
   code: string;
   expiresAt: string;
 };
+
+function generateSecureRandomBase36(length: number): string {
+  let result = "";
+  while (result.length < length) {
+    const bytes = randomBytes(length * 2);
+    for (let i = 0; i < bytes.length && result.length < length; i += 1) {
+      const byte = bytes[i];
+      if (byte < 252) {
+        result += BASE36_CHARS[byte % 36];
+      }
+    }
+  }
+  return result;
+}
 
 export function generateActivationCode(
   ttlHours: number,
@@ -37,25 +58,47 @@ export function generateActivationCode(
     throw new Error("Activation code TTL must be a positive whole number of hours.");
   }
   const expiresAtMs = now.getTime() + ttlHours * 60 * 60 * 1000;
-  if (!Number.isSafeInteger(expiresAtMs)) {
+  if (!Number.isSafeInteger(expiresAtMs) || expiresAtMs < ACTIVATION_EPOCH_MS) {
     throw new Error("Activation code expiry is outside the supported range.");
   }
 
-  const expiresAtSeconds = Math.floor(expiresAtMs / 1000);
-  const expiry = expiresAtSeconds.toString(36).toUpperCase();
-  const random = randomBytes(ACTIVATION_CODE_RANDOM_BYTES).toString("hex").toUpperCase();
+  const block = Math.ceil((expiresAtMs - ACTIVATION_EPOCH_MS) / EXPIRY_BLOCK_MS);
+  if (block >= MAX_EXPIRY_BLOCKS) {
+    throw new Error("Activation code expiry is outside the supported range.");
+  }
+
+  const expiryDate = new Date(ACTIVATION_EPOCH_MS + block * EXPIRY_BLOCK_MS);
+  const expiryPart = block.toString(36).toUpperCase().padStart(ACTIVATION_CODE_EXPIRY_CHARS, "0");
+
+  let raw: string;
+  let formattedCode: string;
+  do {
+    const randomPart = generateSecureRandomBase36(ACTIVATION_CODE_RANDOM_CHARS);
+    raw = `${expiryPart}${randomPart}`;
+    formattedCode = `${raw.slice(0, 4)}-${raw.slice(4)}`;
+  } while (recentCodes.has(formattedCode));
+
+  if (recentCodes.size >= 10000) {
+    recentCodes.clear();
+  }
+  recentCodes.add(formattedCode);
+
   return {
-    code: `${ACTIVATION_CODE_VERSION}-${expiry}-${random}`,
-    expiresAt: new Date(expiresAtSeconds * 1000).toISOString(),
+    code: formattedCode,
+    expiresAt: expiryDate.toISOString(),
   };
 }
 
 export function readActivationCodeExpiry(code: string): Date | null {
-  const match = ACTIVATION_CODE_PATTERN.exec(normalizeActivationCode(code));
-  if (!match) return null;
-  const seconds = Number.parseInt(match[1], 36);
-  if (!Number.isSafeInteger(seconds) || seconds <= 0) return null;
-  const expiresAt = new Date(seconds * 1000);
+  const normalized = normalizeActivationCode(code);
+  if (normalized.length !== ACTIVATION_CODE_NORMALIZED_LENGTH || !ACTIVATION_CODE_PATTERN.test(normalized)) {
+    return null;
+  }
+  const block = Number.parseInt(normalized.slice(0, ACTIVATION_CODE_EXPIRY_CHARS), 36);
+  if (!Number.isSafeInteger(block) || block < 0 || block >= MAX_EXPIRY_BLOCKS) {
+    return null;
+  }
+  const expiresAt = new Date(ACTIVATION_EPOCH_MS + block * EXPIRY_BLOCK_MS);
   return Number.isNaN(expiresAt.getTime()) ? null : expiresAt;
 }
 

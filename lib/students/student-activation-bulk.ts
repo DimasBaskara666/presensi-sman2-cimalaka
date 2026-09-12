@@ -2,6 +2,7 @@ import "server-only";
 import {
   digestActivationCode,
   generateActivationCode,
+  type GeneratedActivationCode,
 } from "@/lib/auth/activation-code";
 import {
   getActivationCodePepper,
@@ -135,9 +136,15 @@ export async function prepareBulkStudentActivations(
 
   const rpcItems: Array<{ login_id: string; claim_code_digest: string }> = [];
   const slips: BulkActivationSlip[] = [];
+  const usedCodes = new Set<string>();
 
   for (const student of candidates) {
-    const generated = generateActivationCode(ttlHours, now);
+    let generated: GeneratedActivationCode;
+    do {
+      generated = generateActivationCode(ttlHours, now);
+    } while (usedCodes.has(generated.code));
+    usedCodes.add(generated.code);
+
     const digest = digestActivationCode(generated.code, pepper);
 
     rpcItems.push({
