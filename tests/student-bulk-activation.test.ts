@@ -272,7 +272,7 @@ test("activation PDF matches attendance report visual design and layout conventi
     "utf8",
   );
 
-  assert.match(pdfSource, /layout:\s*"landscape"/);
+  assert.match(pdfSource, /layout:\s*"portrait"/);
   assert.match(pdfSource, /size:\s*"A4"/);
   assert.match(pdfSource, /MARGIN\s*=\s*36/);
   assert.match(pdfSource, /TABLE_HEADER_HEIGHT\s*=\s*23/);
