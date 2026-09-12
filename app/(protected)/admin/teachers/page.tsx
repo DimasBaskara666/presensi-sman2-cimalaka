@@ -6,6 +6,7 @@ import {
   resetTeacherPasswordAction,
   setTeacherActiveAction,
 } from "./actions";
+import { TeacherToggleButton } from "./deactivate-button";
 
 export const dynamic = "force-dynamic";
 
@@ -122,13 +123,11 @@ export default async function TeacherManagementPage({
                   <p className="teacher-created">Dibuat {dateFormatter.format(new Date(teacher.createdAt))}</p>
 
                   <div className="teacher-actions">
-                    <form action={setTeacherActiveAction}>
-                      <input name="teacher_id" type="hidden" value={teacher.id} />
-                      <input name="is_active" type="hidden" value={teacher.isActive ? "false" : "true"} />
-                      <button className="button button-secondary" type="submit">
-                        {teacher.isActive ? "Nonaktifkan" : "Aktifkan"}
-                      </button>
-                    </form>
+                    <TeacherToggleButton
+                      teacherId={teacher.id}
+                      isActive={teacher.isActive}
+                      action={setTeacherActiveAction}
+                    />
 
                     <details className="reset-panel">
                       <summary>Reset kata sandi</summary>

@@ -39,13 +39,13 @@ export function BulkActivationControl({
         </select>
       </div>
 
-      <div className="page-actions" style={{ marginTop: "1rem", flexWrap: "wrap", gap: "0.75rem" }}>
+      <div className="page-actions bulk-actions">
         <a
           href={missingUrl}
           className="button button-primary"
           download
         >
-          Generate & Unduh Slip (Hanya yang Belum Punya Kode)
+          Generate &amp; Unduh Slip (Hanya yang Belum Punya Kode)
         </a>
 
         {!showRegenerateConfirm ? (
@@ -57,7 +57,7 @@ export function BulkActivationControl({
             Generate Ulang Semua {selectedClass ? `Kelas ${selectedClass}` : "Siswa"} (Reset)
           </button>
         ) : (
-          <div className="alert alert-warning" style={{ display: "flex", alignItems: "center", gap: "1rem", width: "100%" }}>
+          <div className="alert alert-warning bulk-confirm-alert">
             <span>
               <strong>Konfirmasi:</strong> Kode lama untuk siswa yang belum aktif akan hangus. Lanjutkan cetak ulang?
             </span>
@@ -67,7 +67,7 @@ export function BulkActivationControl({
               download
               onClick={() => setShowRegenerateConfirm(false)}
             >
-              Ya, Generate Ulang & Unduh
+              Ya, Generate Ulang &amp; Unduh
             </a>
             <button
               type="button"
@@ -80,7 +80,7 @@ export function BulkActivationControl({
         )}
       </div>
 
-      <p className="muted" style={{ marginTop: "0.75rem", fontSize: "0.85rem" }}>
+      <p className="form-hint">
         {selectedClass
           ? `Operasi hanya berlaku untuk siswa di Kelas ${selectedClass}.`
           : `Operasi default hanya akan membuat kode untuk ${needsCodeCount} siswa yang belum memiliki kode aktif.`}

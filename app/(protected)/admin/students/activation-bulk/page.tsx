@@ -13,8 +13,8 @@ export default async function BulkActivationPage() {
     <>
       <header className="page-header">
         <div>
-          <p className="eyebrow">Administrator only</p>
-          <h1>Aktivasi Massal & Cetak Slip Siswa</h1>
+          <p className="eyebrow">Khusus administrator</p>
+          <h1>Aktivasi Massal &amp; Cetak Slip Siswa</h1>
           <p className="muted">
             Generate dan unduh slip kode aktivasi untuk dibagikan kepada siswa atau wali kelas.
           </p>
@@ -26,45 +26,39 @@ export default async function BulkActivationPage() {
         </div>
       </header>
 
-      <section className="card" style={{ marginBottom: "1.5rem" }}>
-        <h2 style={{ fontSize: "1.1rem", marginBottom: "1rem" }}>Ringkasan Status Aktivasi Sekolah</h2>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-            gap: "1rem",
-          }}
-        >
-          <div className="card" style={{ background: "var(--color-bg-subtle, #f5f8f7)", padding: "1rem" }}>
-            <p className="muted" style={{ margin: 0, fontSize: "0.85rem" }}>Total Siswa Terdaftar</p>
-            <p style={{ margin: "0.25rem 0 0", fontSize: "1.5rem", fontWeight: 700 }}>
+      <section className="card">
+        <h2>Ringkasan Status Aktivasi Sekolah</h2>
+        <div className="bulk-stat-grid">
+          <div className="bulk-stat-card">
+            <p className="bulk-stat-label">Total Siswa Terdaftar</p>
+            <p className="bulk-stat-value">
               {stats.totalStudents}
             </p>
           </div>
-          <div className="card" style={{ background: "var(--color-bg-subtle, #f5f8f7)", padding: "1rem" }}>
-            <p className="muted" style={{ margin: 0, fontSize: "0.85rem" }}>Sudah Diaktivasi</p>
-            <p style={{ margin: "0.25rem 0 0", fontSize: "1.5rem", fontWeight: 700, color: "var(--color-success-text)" }}>
+          <div className="bulk-stat-card">
+            <p className="bulk-stat-label">Sudah Diaktivasi</p>
+            <p className="bulk-stat-value is-success">
               {stats.activatedCount}
             </p>
           </div>
-          <div className="card" style={{ background: "var(--color-bg-subtle, #f5f8f7)", padding: "1rem" }}>
-            <p className="muted" style={{ margin: 0, fontSize: "0.85rem" }}>Sudah Ada Kode Aktif</p>
-            <p style={{ margin: "0.25rem 0 0", fontSize: "1.5rem", fontWeight: 700, color: "#2563eb" }}>
+          <div className="bulk-stat-card">
+            <p className="bulk-stat-label">Sudah Ada Kode Aktif</p>
+            <p className="bulk-stat-value is-primary">
               {stats.hasCodeCount}
             </p>
           </div>
-          <div className="card" style={{ background: "var(--color-bg-subtle, #f5f8f7)", padding: "1rem" }}>
-            <p className="muted" style={{ margin: 0, fontSize: "0.85rem" }}>Belum Memiliki Kode</p>
-            <p style={{ margin: "0.25rem 0 0", fontSize: "1.5rem", fontWeight: 700, color: "#d97706" }}>
+          <div className="bulk-stat-card">
+            <p className="bulk-stat-label">Belum Memiliki Kode</p>
+            <p className="bulk-stat-value is-warning">
               {stats.needsCodeCount}
             </p>
           </div>
         </div>
       </section>
 
-      <section className="card" style={{ marginBottom: "1.5rem" }}>
-        <h2 style={{ fontSize: "1.1rem", marginBottom: "0.5rem" }}>Generate & Unduh Slip Aktivasi</h2>
-        <p className="muted" style={{ marginBottom: "1rem", fontSize: "0.9rem" }}>
+      <section className="card">
+        <h2>Generate &amp; Unduh Slip Aktivasi</h2>
+        <p className="muted">
           Pilih kelas untuk mencetak slip per kelas, atau pilih semua kelas untuk mencetak slip seluruh sekolah sekaligus.
         </p>
         <BulkActivationControl
@@ -74,7 +68,7 @@ export default async function BulkActivationPage() {
       </section>
 
       <section className="card">
-        <h2 style={{ fontSize: "1.1rem", marginBottom: "1rem" }}>Rincian Status Aktivasi per Kelas</h2>
+        <h2>Rincian Status Aktivasi per Kelas</h2>
         <div className="table-wrap">
           <table className="data-table">
             <thead>
@@ -104,7 +98,7 @@ export default async function BulkActivationPage() {
                     )}
                   </td>
                   <td>
-                    <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                    <div className="action-row">
                       <a
                         href={`/admin/students/activation-bulk/pdf?class=${encodeURIComponent(row.className)}&mode=missing`}
                         className="button button-secondary button-small"
@@ -118,7 +112,7 @@ export default async function BulkActivationPage() {
                         title="Buat ulang semua kode untuk siswa yang belum aktif di kelas ini"
                         download
                       >
-                        Reset & Cetak Ulang
+                        Reset &amp; Cetak Ulang
                       </a>
                     </div>
                   </td>

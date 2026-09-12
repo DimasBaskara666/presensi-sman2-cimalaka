@@ -10,11 +10,11 @@ export default async function StudentImportPage() {
     <>
       <header className="page-header">
         <div>
-          <p className="eyebrow">Administrator only</p>
-          <h1>Import Students</h1>
-          <p className="muted">Validate and preview one school roster before writing any Student records.</p>
+          <p className="eyebrow">Khusus administrator</p>
+          <h1>Impor Siswa</h1>
+          <p className="muted">Validasi dan pratinjau roster sekolah sebelum menyimpan data siswa.</p>
         </div>
-        <Link className="button button-secondary" href="/admin/students">Back to Students</Link>
+        <Link className="button button-secondary" href="/admin/students">Kembali ke Kelola Siswa</Link>
       </header>
       <StudentImportWorkflow />
     </>

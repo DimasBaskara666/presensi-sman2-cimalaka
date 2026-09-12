@@ -34,7 +34,7 @@ export default async function AttendanceSettingsPage({ searchParams }: Attendanc
     <div className="history-page">
       <header className="page-header">
         <div>
-          <p className="eyebrow">Administrator only</p>
+          <p className="eyebrow">Khusus administrator</p>
           <h1>Pengaturan Presensi</h1>
           <p className="muted">Atur jadwal yang dipakai PostgreSQL untuk validasi presensi.</p>
         </div>

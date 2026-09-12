@@ -20,16 +20,28 @@ export function ActivationCodeControl({
   return (
     <div className="activation-code-panel">
       {hasActivationCode ? (
-        <p className="muted" style={{ marginBottom: "1rem", fontSize: "0.9rem" }}>
+        <p className="muted">
           Siswa ini sudah memiliki kode aktivasi aktif di database. Jika siswa kehilangan slip atau kode lama kedaluwarsa, Anda dapat membuat ulang kode baru. <strong>Kode lama akan langsung tidak berlaku.</strong>
         </p>
       ) : (
-        <p className="muted" style={{ marginBottom: "1rem", fontSize: "0.9rem" }}>
+        <p className="muted">
           Siswa ini belum memiliki kode aktivasi. Klik tombol di bawah untuk membuat kode satu kali pakai.
         </p>
       )}
 
-      <form action={formAction}>
+      <form
+        action={formAction}
+        onSubmit={(e) => {
+          if (hasActivationCode) {
+            const ok = window.confirm(
+              "Buat ulang kode aktivasi?\n\nKode lama yang belum dipakai akan langsung hangus dan tidak dapat digunakan lagi."
+            );
+            if (!ok) {
+              e.preventDefault();
+            }
+          }
+        }}
+      >
         <input type="hidden" name="login_id" value={loginId} />
         <button className="button button-primary" type="submit" disabled={pending}>
           {pending ? "Membuat…" : hasActivationCode ? "Buat Ulang Kode (Reset)" : "Buat Kode Aktivasi"}

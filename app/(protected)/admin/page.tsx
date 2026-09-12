@@ -35,14 +35,14 @@ export default async function AdminPage() {
           <Link className="button button-primary" href="/admin/attendance-qr">Kelola QR Presensi</Link>
         </section>
         <section className="card narrow">
-          <h2>Student Management</h2>
-          <p className="muted">Import and review the school Student roster without creating Auth accounts.</p>
-          <Link className="button button-primary" href="/admin/students">Manage Students</Link>
+          <h2>Kelola Siswa</h2>
+          <p className="muted">Impor dan kelola data roster siswa, aktivasi akun, dan pemulihan kata sandi.</p>
+          <Link className="button button-primary" href="/admin/students">Buka Kelola Siswa</Link>
         </section>
         <section className="card narrow">
           <h2>Pengelolaan Guru</h2>
           <p className="muted">Buat akun guru, aktifkan atau nonaktifkan akses, dan reset kata sandi.</p>
-          <Link className="button button-primary" href="/admin/teachers">Kelola guru</Link>
+          <Link className="button button-primary" href="/admin/teachers">Kelola Guru</Link>
         </section>
       </div>
     </>

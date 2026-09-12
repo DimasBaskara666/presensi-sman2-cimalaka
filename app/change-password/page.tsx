@@ -53,7 +53,7 @@ export default async function ChangePasswordPage({ searchParams }: ChangePasswor
           <button className="button button-primary" type="submit">Simpan kata sandi</button>
         </form>
 
-        <div style={{ display: "flex", gap: "0.75rem", marginTop: "1rem" }}>
+        <div className="page-actions" style={{ marginTop: "1rem" }}>
           {!shouldRequirePasswordChange(person) ? (
             <Link className="button button-secondary" href="/dashboard">Kembali</Link>
           ) : null}

@@ -167,44 +167,102 @@ export function StudentQrScanner({ initialToken }: { initialToken: string | null
 
       {receivedToken ? (
         <div className="student-token-received" role="status">
-          <strong>QR diterima</strong>
-          <p>Konfirmasi untuk memproses presensi menggunakan akun siswa ini.</p>
-          <button className="button button-primary" type="button" disabled={pending} onClick={() => processToken(receivedToken)}>
-            {pending ? "Memproses…" : "Proses Presensi"}
-          </button>
+          <div className="student-token-info">
+            <span className="eyebrow">Kode QR Terdeteksi</span>
+            <strong>Tautan presensi berhasil dibaca</strong>
+            <p className="muted">Konfirmasi untuk memproses presensi menggunakan akun siswa Anda.</p>
+          </div>
+          <div className="page-actions">
+            <button className="button button-primary" type="button" disabled={pending} onClick={() => processToken(receivedToken)}>
+              {pending ? "Memproses…" : "Proses Presensi"}
+            </button>
+            <Link className="button button-secondary" href="/student">
+              Batal
+            </Link>
+          </div>
         </div>
       ) : (
         <>
           <div className={`student-camera-frame${cameraState === "scanning" ? " is-active" : ""}`}>
             <video ref={videoRef} autoPlay muted playsInline aria-label="Pratinjau kamera pemindai QR" />
-            {cameraState !== "scanning" ? <span aria-hidden="true">QR</span> : null}
+            {cameraState === "scanning" ? (
+              <>
+                <div className="student-camera-guide" aria-hidden="true" />
+                <div className="student-camera-corners" aria-hidden="true" />
+              </>
+            ) : (
+              <div className="student-camera-idle-content">
+                <span className="student-camera-idle-icon" aria-hidden="true">
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="7" height="7" rx="1" />
+                    <rect x="14" y="3" width="7" height="7" rx="1" />
+                    <rect x="3" y="14" width="7" height="7" rx="1" />
+                    <circle cx="17.5" cy="17.5" r="2.5" />
+                  </svg>
+                </span>
+                <p>{cameraState === "starting" ? "Menyiapkan kamera…" : "Ketuk tombol di bawah untuk mulai memindai"}</p>
+              </div>
+            )}
           </div>
           <div className="page-actions student-scan-actions">
-            <button className="button button-primary" type="button" disabled={pending || cameraState === "starting" || cameraState === "scanning"} onClick={startCamera}>
+            <button
+              className="button button-primary"
+              type="button"
+              disabled={pending || cameraState === "starting" || cameraState === "scanning"}
+              onClick={startCamera}
+            >
               {cameraState === "starting" ? "Membuka kamera…" : cameraState === "scanning" ? "Mencari QR…" : "Mulai Kamera"}
             </button>
             {cameraState === "scanning" ? (
-              <button className="button button-secondary" type="button" onClick={stopCamera}>Tutup Kamera</button>
+              <button className="button button-secondary" type="button" onClick={stopCamera}>
+                Tutup Kamera
+              </button>
             ) : null}
           </div>
         </>
       )}
 
       {cameraState === "unsupported" ? (
-        <p className="alert alert-error" role="alert">Pemindai dalam browser tidak didukung. Buka aplikasi kamera ponsel, pindai QR, lalu buka tautan yang muncul.</p>
+        <p className="alert alert-error" role="alert">
+          Pemindai dalam browser tidak didukung. Buka aplikasi kamera ponsel, pindai QR, lalu buka tautan yang muncul.
+        </p>
       ) : null}
       {cameraState === "error" ? (
-        <p className="alert alert-error" role="alert">Kamera tidak dapat dibuka. Izinkan akses kamera atau gunakan aplikasi kamera ponsel.</p>
+        <p className="alert alert-error" role="alert">
+          Kamera tidak dapat dibuka. Izinkan akses kamera atau gunakan aplikasi kamera ponsel.
+        </p>
       ) : null}
-      {pending ? <p className="student-scan-pending" role="status">Memverifikasi QR dan mencatat waktu dari server…</p> : null}
+      {pending ? (
+        <p className="student-scan-pending" role="status">
+          Memverifikasi QR dan mencatat waktu dari server…
+        </p>
+      ) : null}
       {!pending && result ? (
         <div className={`student-scan-result ${result.ok ? "is-success" : "is-error"}`} role={result.ok ? "status" : "alert"}>
           <h2>{resultTitle}</h2>
-          <p>{result.message}</p>
-          {result.occurredAt ? <p>Waktu: <strong>{schoolTime(result.occurredAt)} WIB</strong></p> : null}
-          {result.action === "check_in" && result.status ? (
-            <p>Status: <strong>{result.status === "on_time" ? "Tepat Waktu" : "Terlambat"}</strong></p>
-          ) : null}
+          <p className="student-result-message">{result.message}</p>
+          <div className="student-result-details">
+            {result.occurredAt ? (
+              <div>
+                <span>Waktu tercatat</span>
+                <strong>{schoolTime(result.occurredAt)} WIB</strong>
+              </div>
+            ) : null}
+            {result.action === "check_in" && result.status ? (
+              <div>
+                <span>Status presensi</span>
+                <strong>{result.status === "on_time" ? "Tepat Waktu" : "Terlambat"}</strong>
+              </div>
+            ) : null}
+          </div>
+          <div className="page-actions student-result-actions">
+            <Link className="button button-primary" href="/student">
+              Kembali ke Akun Siswa
+            </Link>
+            <button className="button button-secondary" type="button" onClick={startCamera}>
+              Pindai Lagi
+            </button>
+          </div>
         </div>
       ) : null}
 

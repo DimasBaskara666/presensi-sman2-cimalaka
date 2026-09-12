@@ -48,28 +48,30 @@ export default async function TeacherPage({ searchParams }: TeacherPageProps) {
         <span className="role-badge">Guru</span>
       </header>
 
-      <section className="card attendance-class-card" aria-labelledby="teacher-qr-title">
-        <div>
-          <h2 id="teacher-qr-title">QR Presensi Sekolah</h2>
-          <p className="muted">Mulai atau tampilkan sesi QR bersama yang berganti otomatis setiap lima menit.</p>
-        </div>
-        <Link className="button button-primary" href="/teacher/attendance-qr">Buka QR Bersama</Link>
-      </section>
+      <div className="teacher-top-cards">
+        <section className="card attendance-class-card" aria-labelledby="teacher-qr-title">
+          <div>
+            <h2 id="teacher-qr-title">QR Presensi Sekolah</h2>
+            <p className="muted">Mulai atau tampilkan sesi QR bersama yang berganti otomatis setiap lima menit.</p>
+          </div>
+          <Link className="button button-primary" href="/teacher/attendance-qr">Buka QR Bersama</Link>
+        </section>
 
-      <section className="card attendance-class-card" aria-labelledby="attendance-class-title">
-        <div>
-          <h2 id="attendance-class-title">Pilih kelas</h2>
-          <p className="muted">Tampilkan satu kelas agar pencatatan tetap cepat dan jelas.</p>
-        </div>
-        <form className="attendance-class-picker" method="get">
-          <label className="sr-only" htmlFor="attendance-class">Kelas</label>
-          <select id="attendance-class" name="class" defaultValue={view.selectedClass ?? ""} required>
-            <option value="">Pilih kelas…</option>
-            {view.classes.map((className) => <option key={className} value={className}>{className}</option>)}
-          </select>
-          <button className="button button-primary" type="submit">Tampilkan</button>
-        </form>
-      </section>
+        <section className="card attendance-class-card" aria-labelledby="attendance-class-title">
+          <div>
+            <h2 id="attendance-class-title">Pilih kelas</h2>
+            <p className="muted">Tampilkan satu kelas agar pencatatan tetap cepat dan jelas.</p>
+          </div>
+          <form className="attendance-class-picker" method="get">
+            <label className="sr-only" htmlFor="attendance-class">Kelas</label>
+            <select id="attendance-class" name="class" defaultValue={view.selectedClass ?? ""} required>
+              <option value="">Pilih kelas…</option>
+              {view.classes.map((className) => <option key={className} value={className}>{className}</option>)}
+            </select>
+            <button className="button button-primary" type="submit">Tampilkan</button>
+          </form>
+        </section>
+      </div>
 
       {view.classNotFound ? (
         <p className="alert alert-error" role="alert">Kelas yang dipilih tidak ditemukan. Pilih kembali dari daftar.</p>
@@ -101,7 +103,9 @@ export default async function TeacherPage({ searchParams }: TeacherPageProps) {
           )}
         </>
       ) : (
-        <p className="empty-state attendance-empty-state">Pilih dan konfirmasi kelas untuk mulai mencatat presensi hari ini.</p>
+        <p className="empty-state attendance-empty-state">
+          Pilih dan konfirmasi kelas untuk mulai mencatat presensi hari ini.
+        </p>
       )}
     </div>
   );

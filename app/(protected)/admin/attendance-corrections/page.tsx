@@ -78,7 +78,7 @@ export default async function AttendanceCorrectionsPage({ searchParams }: Attend
     <div className="history-page">
       <header className="page-header">
         <div>
-          <p className="eyebrow">Administrator only</p>
+          <p className="eyebrow">Khusus administrator</p>
           <h1>Koreksi Presensi</h1>
           <p className="muted">Cari catatan, tinjau keadaan sekarang, lalu simpan koreksi dengan alasan audit.</p>
         </div>

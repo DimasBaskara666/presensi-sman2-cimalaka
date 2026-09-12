@@ -60,11 +60,14 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               required
             />
           </div>
-          <button className="button button-primary" type="submit">Masuk</button>
+          <button className="button button-primary" type="submit">
+            Masuk
+          </button>
         </form>
 
-        <p className="muted" style={{ marginTop: "1rem", marginBottom: 0 }}>
-          Siswa baru? <Link href="/activate">Aktifkan akun</Link>. <Link href="/">Kembali</Link>
+        <p className="auth-footer-link">
+          Siswa baru? <Link href="/activate">Aktifkan akun</Link>.{" "}
+          <Link href="/">Kembali</Link>
         </p>
       </section>
     </main>
