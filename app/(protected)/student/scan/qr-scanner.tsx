@@ -151,71 +151,110 @@ export function StudentQrScanner({ initialToken }: { initialToken: string | null
 
   const resultTitle = result?.ok
     ? result.action === "check_in"
-      ? "Berhasil Presensi"
+      ? "Presensi Masuk Berhasil!"
       : result.action === "check_out"
-        ? "Berhasil Check-out"
-        : "Presensi Sudah Lengkap"
-    : "Presensi Belum Diproses";
+        ? "Presensi Pulang Berhasil!"
+        : "Presensi Hari Ini Lengkap!"
+    : "Presensi Belum Berhasil";
 
   return (
     <section className="card student-scan-card" aria-labelledby="scan-title">
-      <div>
-        <p className="eyebrow">Kamera siswa</p>
-        <h2 id="scan-title">Pindai QR sekolah</h2>
-        <p className="muted">Arahkan kamera ke QR aktif. Waktu dan jenis presensi ditentukan oleh sistem sekolah.</p>
+      <div className="student-scan-intro">
+        <h2 id="scan-title" className="student-scan-title">Pindai QR Presensi</h2>
+        <p className="muted">
+          Posisikan kamera tepat di depan kode QR yang aktif pada layar proyektor kelas atau monitor guru.
+        </p>
       </div>
 
       {receivedToken ? (
         <div className="student-token-received" role="status">
           <div className="student-token-info">
             <span className="eyebrow">Kode QR Terdeteksi</span>
-            <strong>Tautan presensi berhasil dibaca</strong>
-            <p className="muted">Konfirmasi untuk memproses presensi menggunakan akun siswa Anda.</p>
+            <strong className="student-token-title">Tautan presensi berhasil dibaca dari kamera</strong>
+            <p className="muted">
+              Tekan tombol di bawah untuk memproses pencatatan kehadiran menggunakan akun siswa Anda.
+            </p>
           </div>
-          <div className="page-actions">
-            <button className="button button-primary" type="button" disabled={pending} onClick={() => processToken(receivedToken)}>
-              {pending ? "Memproses…" : "Proses Presensi"}
+          <div className="page-actions student-token-actions">
+            <button
+              className="button button-primary button-full"
+              type="button"
+              disabled={pending}
+              onClick={() => processToken(receivedToken)}
+            >
+              {pending ? (
+                <>
+                  <span className="spinner" aria-hidden="true" />
+                  <span>Memproses Presensi…</span>
+                </>
+              ) : (
+                <span>Konfirmasi & Proses Presensi</span>
+              )}
             </button>
-            <Link className="button button-secondary" href="/student">
+            <Link className="button button-secondary button-full" href="/student">
               Batal
             </Link>
           </div>
         </div>
       ) : (
         <>
-          <div className={`student-camera-frame${cameraState === "scanning" ? " is-active" : ""}`}>
-            <video ref={videoRef} autoPlay muted playsInline aria-label="Pratinjau kamera pemindai QR" />
+          <div className={`student-camera-viewport${cameraState === "scanning" ? " is-active" : ""}`}>
+            <video ref={videoRef} autoPlay muted playsInline aria-label="Jendela bidik kamera pemindai QR" />
             {cameraState === "scanning" ? (
-              <>
-                <div className="student-camera-guide" aria-hidden="true" />
-                <div className="student-camera-corners" aria-hidden="true" />
-              </>
+              <div className="student-camera-overlay" aria-hidden="true">
+                <div className="student-camera-reticle">
+                  <span className="reticle-corner reticle-top-left" />
+                  <span className="reticle-corner reticle-top-right" />
+                  <span className="reticle-corner reticle-bottom-left" />
+                  <span className="reticle-corner reticle-bottom-right" />
+                  <div className="reticle-scanner-line" />
+                </div>
+                <p className="student-camera-live-hint">Arahkan bingkai ke kode QR</p>
+              </div>
             ) : (
               <div className="student-camera-idle-content">
-                <span className="student-camera-idle-icon" aria-hidden="true">
-                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                <div className="student-camera-idle-icon-wrap" aria-hidden="true">
+                  <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
                     <rect x="3" y="3" width="7" height="7" rx="1" />
                     <rect x="14" y="3" width="7" height="7" rx="1" />
                     <rect x="3" y="14" width="7" height="7" rx="1" />
                     <circle cx="17.5" cy="17.5" r="2.5" />
                   </svg>
-                </span>
-                <p>{cameraState === "starting" ? "Menyiapkan kamera…" : "Ketuk tombol di bawah untuk mulai memindai"}</p>
+                </div>
+                <p className="student-camera-idle-text">
+                  {cameraState === "starting" ? "Menghubungkan sensor kamera ponsel…" : "Ketuk tombol di bawah untuk menyalakan kamera pemindai"}
+                </p>
               </div>
             )}
           </div>
-          <div className="page-actions student-scan-actions">
+
+          <div className="student-scan-controls">
             <button
-              className="button button-primary"
+              className="button button-primary student-camera-toggle-btn"
               type="button"
               disabled={pending || cameraState === "starting" || cameraState === "scanning"}
               onClick={startCamera}
             >
-              {cameraState === "starting" ? "Membuka kamera…" : cameraState === "scanning" ? "Mencari QR…" : "Mulai Kamera"}
+              {cameraState === "starting" ? (
+                <>
+                  <span className="spinner" aria-hidden="true" />
+                  <span>Membuka Kamera…</span>
+                </>
+              ) : cameraState === "scanning" ? (
+                <span>Mencari Kode QR…</span>
+              ) : (
+                <>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                    <circle cx="12" cy="13" r="4" />
+                  </svg>
+                  <span>Nyalakan Kamera Pemindai</span>
+                </>
+              )}
             </button>
             {cameraState === "scanning" ? (
-              <button className="button button-secondary" type="button" onClick={stopCamera}>
-                Tutup Kamera
+              <button className="button button-secondary student-camera-stop-btn" type="button" onClick={stopCamera}>
+                Matikan Kamera
               </button>
             ) : null}
           </div>
@@ -223,51 +262,85 @@ export function StudentQrScanner({ initialToken }: { initialToken: string | null
       )}
 
       {cameraState === "unsupported" ? (
-        <p className="alert alert-error" role="alert">
-          Pemindai dalam browser tidak didukung. Buka aplikasi kamera ponsel, pindai QR, lalu buka tautan yang muncul.
-        </p>
+        <div className="alert alert-error" role="alert">
+          <strong>Peramban Tidak Mendukung Akses Kamera Langsung</strong>
+          <p>Gunakan aplikasi kamera bawaan ponsel Anda untuk memindai kode QR, lalu buka tautan yang terdeteksi.</p>
+        </div>
       ) : null}
+
       {cameraState === "error" ? (
-        <p className="alert alert-error" role="alert">
-          Kamera tidak dapat dibuka. Izinkan akses kamera atau gunakan aplikasi kamera ponsel.
-        </p>
+        <div className="alert alert-error" role="alert">
+          <strong>Izin Akses Kamera Ditolak atau Tidak Tersedia</strong>
+          <p>Pastikan Anda telah memberikan izin akses kamera untuk situs ini pada pengaturan peramban ponsel Anda.</p>
+        </div>
       ) : null}
+
       {pending ? (
-        <p className="student-scan-pending" role="status">
-          Memverifikasi QR dan mencatat waktu dari server…
-        </p>
+        <div className="student-scan-pending-banner" role="status">
+          <span className="spinner" aria-hidden="true" />
+          <span>Memverifikasi QR dan mencatat waktu presensi resmi dari server…</span>
+        </div>
       ) : null}
+
       {!pending && result ? (
-        <div className={`student-scan-result ${result.ok ? "is-success" : "is-error"}`} role={result.ok ? "status" : "alert"}>
-          <h2>{resultTitle}</h2>
-          <p className="student-result-message">{result.message}</p>
+        <div className={`student-scan-result-card ${result.ok ? "is-success" : "is-error"}`} role={result.ok ? "status" : "alert"}>
+          <div className="student-result-header">
+            <div className="student-result-icon" aria-hidden="true">
+              {result.ok ? (
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              ) : (
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+              )}
+            </div>
+            <div>
+              <h3 className="student-result-heading">{resultTitle}</h3>
+              <p className="student-result-message">{result.message}</p>
+            </div>
+          </div>
+
           <div className="student-result-details">
             {result.occurredAt ? (
-              <div>
-                <span>Waktu tercatat</span>
-                <strong>{schoolTime(result.occurredAt)} WIB</strong>
+              <div className="student-result-row">
+                <span>Waktu Server Tercatat</span>
+                <strong className="tnum">{schoolTime(result.occurredAt)} WIB</strong>
               </div>
             ) : null}
             {result.action === "check_in" && result.status ? (
-              <div>
-                <span>Status presensi</span>
-                <strong>{result.status === "on_time" ? "Tepat Waktu" : "Terlambat"}</strong>
+              <div className="student-result-row">
+                <span>Status Kehadiran</span>
+                <span className={`status-pill ${result.status === "on_time" ? "status-state-present" : "status-state-late"}`}>
+                  <span className="status-dot" aria-hidden="true" />
+                  {result.status === "on_time" ? "Tepat Waktu" : "Terlambat"}
+                </span>
               </div>
             ) : null}
           </div>
-          <div className="page-actions student-result-actions">
-            <Link className="button button-primary" href="/student">
+
+          <div className="student-result-actions">
+            <Link className="button button-primary button-full" href="/student">
               Kembali ke Akun Siswa
             </Link>
-            <button className="button button-secondary" type="button" onClick={startCamera}>
+            <button className="button button-secondary button-full" type="button" onClick={startCamera}>
               Pindai Lagi
             </button>
           </div>
         </div>
       ) : null}
 
-      <p className="student-scan-help">Tidak perlu Wi-Fi sekolah; ponsel hanya memerlukan koneksi internet ke aplikasi.</p>
-      <Link className="button button-quiet" href="/student">Kembali ke akun siswa</Link>
+      <div className="student-scan-footer-help">
+        <p className="student-scan-help">
+          Posisikan kode QR di dalam kotak bidik kamera hingga terdeteksi otomatis.
+        </p>
+        <Link className="button button-quiet" href="/student">
+          Kembali ke Beranda Siswa
+        </Link>
+      </div>
     </section>
   );
 }

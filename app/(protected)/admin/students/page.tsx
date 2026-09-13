@@ -6,14 +6,14 @@ import { StudentToggleButton } from "./deactivate-button";
 
 export const dynamic = "force-dynamic";
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 25;
 
 type StudentPageProps = {
   searchParams: Promise<{ query?: string; class?: string; error?: string; status?: string; page?: string }>;
 };
 
 const statusMessages: Record<string, string> = {
-  activated: "Akses siswa berhasil diaktifkan.",
+  activated: "Akses siswa berhasil diaktifkan kembali.",
   deactivated: "Akses siswa berhasil dinonaktifkan.",
   password_reset: "Kata sandi siswa berhasil diatur ulang.",
 };
@@ -21,7 +21,7 @@ const statusMessages: Record<string, string> = {
 const errorMessages: Record<string, string> = {
   invalid_login_id: "ID siswa tidak valid.",
   invalid_status: "Status akun tidak valid.",
-  invalid_password: "Kata sandi harus memenuhi kebijakan kata sandi siswa.",
+  invalid_password: "Kata sandi harus memenuhi kebijakan kata sandi siswa (minimal 10 karakter, ada huruf dan angka).",
   password_mismatch: "Konfirmasi kata sandi tidak sama.",
   student_not_found: "Data siswa tidak ditemukan.",
   student_not_activated: "Kata sandi hanya dapat diatur ulang untuk akun yang sudah diaktivasi.",
@@ -51,26 +51,37 @@ export default async function StudentsPage({ searchParams }: StudentPageProps) {
   const page = Math.min(currentPage, totalPages);
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
+  const startRow = filtered.length > 0 ? (page - 1) * PAGE_SIZE + 1 : 0;
+  const endRow = Math.min(page * PAGE_SIZE, filtered.length);
+
   function pageUrl(p: number) {
     const sp = new URLSearchParams();
     if (params.query) sp.set("query", params.query);
     if (params.class) sp.set("class", params.class);
     sp.set("page", String(p));
-    return `/admin/students?${sp}`;
+    return `/admin/students?${sp.toString()}`;
   }
 
   return (
-    <>
+    <div className="admin-students-page">
       <header className="page-header">
         <div>
-          <p className="eyebrow">Khusus administrator</p>
-          <h1>Kelola Siswa</h1>
-          <p className="muted">Kelola roster, aktivasi, status akses, dan pemulihan kata sandi siswa.</p>
+          <p className="eyebrow">Pengelolaan Data Roster</p>
+          <h1>Kelola Data Siswa</h1>
+          <p className="muted">
+            Kelola daftar {students.length} siswa, verifikasi status akun, aktivasi individu, dan reset kata sandi.
+          </p>
         </div>
         <div className="page-actions">
-          <Link className="button button-primary" href="/admin/students/activation-bulk">Distribusi Slip Aktivasi</Link>
-          <Link className="button button-secondary" href="/admin/students/import">Impor Siswa</Link>
-          <Link className="button button-secondary" href="/admin">Kembali</Link>
+          <Link className="button button-primary" href="/admin/students/activation-bulk">
+            Distribusi Slip Aktivasi
+          </Link>
+          <Link className="button button-secondary" href="/admin/students/import">
+            Impor File Excel
+          </Link>
+          <Link className="button button-secondary" href="/admin">
+            Kembali
+          </Link>
         </div>
       </header>
 
@@ -86,55 +97,96 @@ export default async function StudentsPage({ searchParams }: StudentPageProps) {
       <section className="card">
         <form className="student-filters" method="get">
           <div className="field">
-            <label htmlFor="student-query">ID atau nama siswa</label>
-            <input id="student-query" name="query" defaultValue={params.query ?? ""} type="search" />
+            <label htmlFor="student-query">Cari NIS atau Nama Siswa</label>
+            <input
+              id="student-query"
+              name="query"
+              defaultValue={params.query ?? ""}
+              type="search"
+              placeholder="Ketik NIS atau nama..."
+            />
           </div>
           <div className="field">
-            <label htmlFor="student-class">Kelas</label>
+            <label htmlFor="student-class">Rombongan Belajar (Kelas)</label>
             <select id="student-class" name="class" defaultValue={classFilter}>
-              <option value="">Semua kelas</option>
-              {classes.map((className) => <option key={className} value={className}>{className}</option>)}
+              <option value="">Semua Kelas ({classes.length} rombel)</option>
+              {classes.map((className) => (
+                <option key={className} value={className}>
+                  Kelas {className}
+                </option>
+              ))}
             </select>
           </div>
-          <button className="button button-secondary" type="submit">Filter</button>
+          <div className="student-filter-actions">
+            <button className="button button-primary" type="submit">
+              Tampilkan
+            </button>
+            {params.query || params.class ? (
+              <Link className="button button-secondary" href="/admin/students">
+                Reset
+              </Link>
+            ) : null}
+          </div>
         </form>
 
-        <p className="muted">
-          Menampilkan {paginated.length} dari {filtered.length} siswa
-          {filtered.length !== students.length ? ` (total ${students.length})` : ""}.
-        </p>
+        <div className="table-meta-bar">
+          <p className="muted">
+            Menampilkan <strong className="tnum">{startRow} - {endRow}</strong> dari{" "}
+            <strong className="tnum">{filtered.length}</strong> siswa
+            {filtered.length !== students.length ? ` (difilter dari ${students.length} siswa)` : ""}.
+          </p>
+        </div>
 
         <div className="table-wrap">
           <table className="data-table">
             <thead>
               <tr>
-                <th>ID Siswa</th>
-                <th>Tipe</th>
-                <th>Nama Lengkap</th>
+                <th className="th-student">Siswa</th>
+                <th>NIS</th>
                 <th>Kelas</th>
-                <th>Status</th>
-                <th>Aktivasi</th>
-                <th>Aksi</th>
+                <th>Status Akun</th>
+                <th>Status Aktivasi</th>
+                <th className="th-actions">Aksi</th>
               </tr>
             </thead>
             <tbody>
               {paginated.map((student) => (
                 <tr key={student.loginId}>
-                  <td><strong>{student.loginId}</strong></td>
-                  <td>{student.idType}</td>
-                  <td>{student.fullName}</td>
-                  <td>{student.className}</td>
+                  <td className="td-student">
+                    <div className="history-student-cell">
+                      <div className="avatar-circle avatar-sm" aria-hidden="true">
+                        {student.fullName.slice(0, 1).toUpperCase()}
+                      </div>
+                      <div className="history-student-meta">
+                        <strong>{student.fullName}</strong>
+                        <span className="history-student-id tnum">{student.idType}: {student.loginId}</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <strong className="tnum">{student.loginId}</strong>
+                  </td>
+                  <td>Kelas {student.className || "-"}</td>
                   <td>
                     <span className={`status-badge ${student.isActive ? "status-active" : "status-inactive"}`}>
                       {student.isActive ? "Aktif" : "Nonaktif"}
                     </span>
                   </td>
                   <td>
-                    {student.isActivated
-                      ? "Sudah aktivasi"
-                      : student.hasActivationCode
-                        ? "Kode tersedia"
-                        : "Perlu kode"}
+                    <span className={`status-pill ${
+                      student.isActivated
+                        ? "status-state-present"
+                        : student.hasActivationCode
+                          ? "status-state-permission"
+                          : "status-state-unmarked"
+                    }`}>
+                      <span className="status-dot" aria-hidden="true" />
+                      {student.isActivated
+                        ? "Sudah Aktivasi"
+                        : student.hasActivationCode
+                          ? "Kode Tersedia"
+                          : "Perlu Kode"}
+                    </span>
                   </td>
                   <td>
                     <div className="teacher-actions">
@@ -153,7 +205,7 @@ export default async function StudentsPage({ searchParams }: StudentPageProps) {
                       />
                       {student.isActivated ? (
                         <details className="reset-panel">
-                          <summary>Reset kata sandi</summary>
+                          <summary>Reset sandi</summary>
                           <form action={resetStudentPasswordAction} className="form-stack compact-form">
                             <input name="login_id" type="hidden" value={student.loginId} />
                             <div className="field">
@@ -177,7 +229,7 @@ export default async function StudentsPage({ searchParams }: StudentPageProps) {
                               />
                             </div>
                             <button className="button button-primary button-small" type="submit">
-                              Simpan kata sandi
+                              Simpan sandi
                             </button>
                           </form>
                         </details>
@@ -193,7 +245,7 @@ export default async function StudentsPage({ searchParams }: StudentPageProps) {
         {paginated.length === 0 ? (
           <p className="empty-state">
             {filtered.length === 0
-              ? "Tidak ada siswa yang sesuai dengan filter ini."
+              ? "Tidak ada siswa yang sesuai dengan kriteria filter pencarian."
               : "Tidak ada data pada halaman ini."}
           </p>
         ) : null}
@@ -201,7 +253,7 @@ export default async function StudentsPage({ searchParams }: StudentPageProps) {
         {totalPages > 1 ? (
           <nav className="pagination" aria-label="Navigasi halaman daftar siswa">
             <span className="pagination-info">
-              Halaman {page} dari {totalPages}
+              Halaman {page} dari {totalPages} ({PAGE_SIZE} siswa per halaman)
             </span>
             <div className="pagination-controls">
               {page > 1 ? (
@@ -210,7 +262,7 @@ export default async function StudentsPage({ searchParams }: StudentPageProps) {
                 </Link>
               ) : null}
               {Array.from({ length: totalPages }, (_, i) => i + 1)
-                .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+                .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2)
                 .reduce<(number | "...")[]>((acc, p, idx, arr) => {
                   if (idx > 0 && p - (arr[idx - 1] as number) > 1) {
                     acc.push("...");
@@ -242,6 +294,6 @@ export default async function StudentsPage({ searchParams }: StudentPageProps) {
           </nav>
         ) : null}
       </section>
-    </>
+    </div>
   );
 }

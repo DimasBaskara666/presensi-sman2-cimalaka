@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import {
   confirmStudentImportAction,
   inspectStudentWorkbookAction,
@@ -46,6 +47,7 @@ export default function StudentImportWorkflow() {
   const [preview, setPreview] = useState<StudentImportPreview | null>(null);
   const [summary, setSummary] = useState<StudentImportSummary | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [pending, startTransition] = useTransition();
 
   const allSheetsHaveClass = Boolean(
@@ -139,9 +141,7 @@ export default function StudentImportWorkflow() {
   }
 
   function handleConfirmImport() {
-    const ok = window.confirm("Lanjutkan impor data siswa ke dalam database sekolah?");
-    if (!ok) return;
-    confirmImport();
+    setShowConfirm(true);
   }
 
   const actionLabels: Record<string, string> = {
@@ -329,10 +329,10 @@ export default function StudentImportWorkflow() {
             disabled={blockingErrors.length > 0 || pending || Boolean(summary)}
             onClick={handleConfirmImport}
           >
-            {pending ? "Memproses…" : "Konfirmasi Impor Siswa"}
+            {pending ? "Memproses…" : "Simpan Data Siswa ke Sistem"}
           </button>
           <p className="form-hint">
-            Konfirmasi akan memvalidasi ulang file Excel sebelum disimpan secara transaksional ke basis data.
+            Data siswa akan divalidasi ulang sebelum disimpan ke sistem sekolah.
           </p>
         </section>
       ) : null}
@@ -349,6 +349,35 @@ export default function StudentImportWorkflow() {
           </div>
         </section>
       ) : null}
+
+      <ConfirmDialog
+        isOpen={showConfirm}
+        title="Konfirmasi Impor Data Siswa?"
+        description={
+          <>
+            <p>
+              Data siswa dari buku kerja Excel akan disimpan ke sistem sekolah:
+            </p>
+            <ul style={{ marginTop: "0.5rem", paddingLeft: "1.25rem", listStyleType: "disc" }}>
+              <li><strong>{preview?.insertedCount ?? 0}</strong> siswa baru akan ditambahkan</li>
+              <li><strong>{preview?.updatedCount ?? 0}</strong> data siswa lama akan diperbarui</li>
+              <li><strong>{preview?.unchangedCount ?? 0}</strong> data siswa tetap sama</li>
+            </ul>
+            <p style={{ marginTop: "0.5rem" }}>
+              Pastikan pemetaan kolom dan pembagian kelas telah sesuai sebelum melanjutkan.
+            </p>
+          </>
+        }
+        confirmLabel="Ya, Simpan ke Sistem"
+        cancelLabel="Batal"
+        variant="primary"
+        isPending={pending}
+        onConfirm={() => {
+          setShowConfirm(false);
+          confirmImport();
+        }}
+        onCancel={() => setShowConfirm(false)}
+      />
     </div>
   );
 }

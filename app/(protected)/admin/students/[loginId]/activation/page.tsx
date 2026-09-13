@@ -26,11 +26,11 @@ export default async function StudentActivationAdminPage({
     <>
       <header className="page-header">
         <div>
-          <p className="eyebrow">Distribusi administrator</p>
-          <h1>Aktivasi siswa</h1>
-          <p className="muted">Kode plaintext hanya ditampilkan pada halaman terpisah ini.</p>
+          <p className="eyebrow">Aktivasi Siswa Individu</p>
+          <h1>Kode Aktivasi Siswa</h1>
+          <p className="muted">Kode aktivasi mandiri dibuat satu kali pakai untuk diserahkan kepada siswa yang bersangkutan.</p>
         </div>
-        <Link className="button button-secondary" href="/admin/students">Kembali</Link>
+        <Link className="button button-secondary" href="/admin/students">Kembali ke Kelola Siswa</Link>
       </header>
 
       <section className="card narrow">

@@ -167,9 +167,14 @@ function AttendanceStudentRow({
         <span className="attendance-student-number">{index + 1}</span>
       </td>
       <td className="td-student">
-        <div className="attendance-student-meta">
-          <strong>{student.fullName}</strong>
-          <span className="attendance-student-id">{student.loginId}</span>
+        <div className="attendance-student-cell">
+          <div className="avatar-circle avatar-sm" aria-hidden="true">
+            {student.fullName.slice(0, 1).toUpperCase()}
+          </div>
+          <div className="attendance-student-meta">
+            <strong>{student.fullName}</strong>
+            <span className="attendance-student-id tnum">{student.loginId}</span>
+          </div>
         </div>
       </td>
       <td className="td-status">

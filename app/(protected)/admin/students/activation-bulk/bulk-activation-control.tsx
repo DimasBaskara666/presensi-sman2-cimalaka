@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 
 type BulkActivationControlProps = {
   classes: string[];
@@ -17,10 +18,20 @@ export function BulkActivationControl({
   const missingUrl = `/admin/students/activation-bulk/pdf?class=${encodeURIComponent(selectedClass)}&mode=missing`;
   const regenerateAllUrl = `/admin/students/activation-bulk/pdf?class=${encodeURIComponent(selectedClass)}&mode=all`;
 
+  function handleConfirmReset() {
+    setShowRegenerateConfirm(false);
+    const link = document.createElement("a");
+    link.href = regenerateAllUrl;
+    link.download = "";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
   return (
     <div className="bulk-activation-panel">
       <div className="field">
-        <label htmlFor="bulk-class-select">Pilih Lingkup Kelas:</label>
+        <label htmlFor="bulk-class-select">Pilih Lingkup Rombongan Belajar (Kelas):</label>
         <select
           id="bulk-class-select"
           value={selectedClass}
@@ -45,40 +56,38 @@ export function BulkActivationControl({
           className="button button-primary"
           download
         >
-          Buat &amp; Unduh Slip (Hanya yang Belum Punya Kode)
+          Generate &amp; Unduh Slip (Hanya yang Belum Punya Kode)
         </a>
 
-        {!showRegenerateConfirm ? (
-          <button
-            type="button"
-            className="button button-secondary"
-            onClick={() => setShowRegenerateConfirm(true)}
-          >
-            Buat Ulang Semua {selectedClass ? `Kelas ${selectedClass}` : "Siswa"} (Reset)
-          </button>
-        ) : (
-          <div className="alert alert-warning bulk-confirm-alert">
-            <span>
-              <strong>Konfirmasi:</strong> Kode lama untuk siswa yang belum aktif akan hangus. Lanjutkan cetak ulang?
-            </span>
-            <button
-              type="button"
-              className="button button-secondary"
-              onClick={() => setShowRegenerateConfirm(false)}
-            >
-              Batal
-            </button>
-            <a
-              href={regenerateAllUrl}
-              className="button button-danger"
-              download
-              onClick={() => setShowRegenerateConfirm(false)}
-            >
-              Ya, Buat Ulang &amp; Unduh
-            </a>
-          </div>
-        )}
+        <button
+          type="button"
+          className="button button-secondary"
+          onClick={() => setShowRegenerateConfirm(true)}
+        >
+          Reset &amp; Cetak Ulang {selectedClass ? `Kelas ${selectedClass}` : "Semua Kelas"}
+        </button>
       </div>
+
+      <ConfirmDialog
+        isOpen={showRegenerateConfirm}
+        title="Reset &amp; Cetak Ulang Kode Aktivasi?"
+        description={
+          <>
+            <p>
+              Kode aktivasi lama untuk siswa yang belum aktif di{" "}
+              <strong>{selectedClass ? `Kelas ${selectedClass}` : "seluruh sekolah"}</strong> akan hangus dan digantikan kode baru.
+            </p>
+            <p style={{ marginTop: "0.5rem" }}>
+              Slip aktivasi PDF format A4 Portrait siap potong akan diunduh secara otomatis. Lanjutkan proses pembuatan ulang kode?
+            </p>
+          </>
+        }
+        confirmLabel="Ya, Reset &amp; Unduh Slip"
+        cancelLabel="Batal"
+        variant="danger"
+        onConfirm={handleConfirmReset}
+        onCancel={() => setShowRegenerateConfirm(false)}
+      />
 
       <p className="form-hint">
         {selectedClass

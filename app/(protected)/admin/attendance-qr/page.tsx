@@ -13,11 +13,11 @@ export default async function AdminAttendanceQrPage() {
     <div className="admin-qr-page">
       <header className="page-header">
         <div>
-          <p className="eyebrow">Administrator · sesi sekolah bersama</p>
+          <p className="eyebrow">Sesi Presensi Sekolah Bersama</p>
           <h1>QR Presensi Siswa</h1>
-          <p className="muted">Admin dan Guru mengendalikan satu sesi QR yang sama; waktu dan validitas ditentukan PostgreSQL.</p>
+          <p className="muted">Kelola sesi kode QR sekolah bersama untuk ditampilkan pada layar monitor atau proyektor.</p>
         </div>
-        <Link className="button button-secondary print-hidden" href="/admin">Kembali</Link>
+        <Link className="button button-secondary print-hidden" href="/admin">Kembali ke Ringkasan</Link>
       </header>
       <SharedQrManager initialState={initialState} />
     </div>
