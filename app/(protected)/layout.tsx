@@ -1,3 +1,9 @@
+/**
+ * Presensi SMAN 2 Cimalaka
+ * © 2026 Dimas Bratakusumah
+ * Institut Teknologi Nasional Bandung
+ */
+
 import { requireCurrentPerson } from "@/lib/auth/require-person";
 import { ResponsiveShell } from "./responsive-shell";
 

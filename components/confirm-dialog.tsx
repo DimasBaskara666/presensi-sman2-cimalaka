@@ -1,5 +1,11 @@
 "use client";
 
+/**
+ * Presensi SMAN 2 Cimalaka
+ * © 2026 Dimas Bratakusumah
+ * Institut Teknologi Nasional Bandung
+ */
+
 import { useEffect, useRef, useSyncExternalStore, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 

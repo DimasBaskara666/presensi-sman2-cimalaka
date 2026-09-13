@@ -164,3 +164,11 @@ Dedicated live tests are exposed as `test:*integration` scripts in `package.json
 ## Current deployment boundary
 
 The repository is configured for local Next.js operation and connection to a Supabase project. Hosting provider settings, production domains, production credentials, backup policy, monitoring, and school deployment procedures are not defined here and must be confirmed separately before production use.
+
+## Author
+
+**Dimas Bratakusumah**<br />
+Institut Teknologi Nasional Bandung
+
+- GitHub: https://github.com/DimasBaskara666
+- LinkedIn: https://www.linkedin.com/in/dimas-bratakusumah-1b480936a/

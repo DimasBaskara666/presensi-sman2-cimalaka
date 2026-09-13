@@ -1,3 +1,9 @@
+/**
+ * Presensi SMAN 2 Cimalaka
+ * © 2026 Dimas Bratakusumah
+ * Institut Teknologi Nasional Bandung
+ */
+
 import type { AppRole } from "@/lib/auth/types";
 
 export const ATTENDANCE_HISTORY_PAGE_SIZE = 40;

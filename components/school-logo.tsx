@@ -1,3 +1,9 @@
+/**
+ * Presensi SMAN 2 Cimalaka
+ * © 2026 Dimas Bratakusumah
+ * Institut Teknologi Nasional Bandung
+ */
+
 import Image from "next/image";
 
 export type SchoolLogoVariant = "color" | "white" | "bw";

@@ -1,3 +1,9 @@
+/**
+ * Presensi SMAN 2 Cimalaka
+ * © 2026 Dimas Bratakusumah
+ * Institut Teknologi Nasional Bandung
+ */
+
 import Link from "next/link";
 import { logoutAction } from "@/app/logout-action";
 import { requireCurrentPerson } from "@/lib/auth/require-person";

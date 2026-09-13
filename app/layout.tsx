@@ -1,3 +1,9 @@
+/**
+ * Presensi SMAN 2 Cimalaka
+ * © 2026 Dimas Bratakusumah
+ * Institut Teknologi Nasional Bandung
+ */
+
 import type { Metadata } from "next";
 import { Manrope } from "next/font/google";
 import "./globals.css";

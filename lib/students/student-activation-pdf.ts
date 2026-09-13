@@ -1,3 +1,9 @@
+/**
+ * Presensi SMAN 2 Cimalaka
+ * © 2026 Dimas Bratakusumah
+ * Institut Teknologi Nasional Bandung
+ */
+
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import PDFDocument from "pdfkit";
@@ -286,7 +292,7 @@ export async function generateStudentActivationPdf(
       doc.switchToPage(index);
       doc.fillColor("#60706a").font("Helvetica").fontSize(7)
         .text(
-          `Sistem Presensi Sekolah | Halaman ${index - range.start + 1} dari ${range.count}`,
+          `Sistem Presensi Sekolah | Halaman ${index - range.start + 1} dari ${range.count} | Presensi SMAN 2 Cimalaka · © 2026 Dimas Bratakusumah`,
           MARGIN,
           doc.page.height - MARGIN - 12,
           { width: doc.page.width - MARGIN * 2, align: "center", lineBreak: false },
