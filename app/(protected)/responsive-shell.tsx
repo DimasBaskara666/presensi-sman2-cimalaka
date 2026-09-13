@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SchoolLogo } from "@/components/school-logo";
 import { logoutAction } from "@/app/logout-action";
 import { hasCapability } from "@/lib/auth/permissions";
@@ -45,7 +45,10 @@ function getNavLinks(role: CurrentPerson["role"]): NavLinkItem[] {
   }
 
   if (hasCapability(role, "read_all_attendance") || hasCapability(role, "read_own_attendance")) {
-    links.push({ href: "/attendance/history", label: "Riwayat Presensi" });
+    links.push({
+      href: "/attendance/history",
+      label: role === "student" ? "Riwayat" : "Riwayat Presensi",
+    });
   }
 
   links.push({ href: "/change-password", label: "Ubah Kata Sandi" });
@@ -73,6 +76,9 @@ export function ResponsiveShell({
   const pathname = usePathname();
   const [prevPathname, setPrevPathname] = useState(pathname);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const toggleButtonRef = useRef<HTMLButtonElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const drawerRef = useRef<HTMLElement>(null);
   const links = getNavLinks(person.role);
 
   if (pathname !== prevPathname) {
@@ -82,19 +88,50 @@ export function ResponsiveShell({
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setDrawerOpen(false);
+      if (event.key === "Escape") {
+        setDrawerOpen(false);
+        toggleButtonRef.current?.focus();
+        return;
+      }
+
+      if (event.key === "Tab" && drawerRef.current) {
+        const focusable = drawerRef.current.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
     }
+
     if (drawerOpen) {
       window.addEventListener("keydown", onKeyDown);
       document.body.style.overflow = "hidden";
+      const timer = setTimeout(() => {
+        closeButtonRef.current?.focus();
+      }, 50);
+      return () => {
+        clearTimeout(timer);
+        window.removeEventListener("keydown", onKeyDown);
+        document.body.style.overflow = "";
+      };
     } else {
       document.body.style.overflow = "";
     }
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = "";
-    };
   }, [drawerOpen]);
+
+  function handleCloseDrawer() {
+    setDrawerOpen(false);
+    toggleButtonRef.current?.focus();
+  }
 
   return (
     <div className="shell">
@@ -105,6 +142,7 @@ export function ResponsiveShell({
       {/* Mobile Topbar */}
       <header className="mobile-topbar" aria-label="Bilah navigasi ponsel">
         <button
+          ref={toggleButtonRef}
           className="mobile-menu-toggle"
           type="button"
           aria-label={drawerOpen ? "Tutup menu navigasi" : "Buka menu navigasi"}
@@ -128,12 +166,13 @@ export function ResponsiveShell({
       {/* Mobile Drawer Backdrop */}
       <div
         className={`mobile-drawer-backdrop${drawerOpen ? " is-open" : ""}`}
-        onClick={() => setDrawerOpen(false)}
+        onClick={handleCloseDrawer}
         aria-hidden="true"
       />
 
       {/* Mobile Drawer */}
       <aside
+        ref={drawerRef}
         id="mobile-nav-drawer"
         className={`mobile-drawer${drawerOpen ? " is-open" : ""}`}
         aria-label="Menu navigasi ponsel"
@@ -148,10 +187,11 @@ export function ResponsiveShell({
             </div>
           </div>
           <button
+            ref={closeButtonRef}
             className="mobile-drawer-close"
             type="button"
             aria-label="Tutup menu navigasi"
-            onClick={() => setDrawerOpen(false)}
+            onClick={handleCloseDrawer}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <line x1="18" y1="6" x2="6" y2="18" />
