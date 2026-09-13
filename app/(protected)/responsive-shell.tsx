@@ -229,9 +229,6 @@ export function ResponsiveShell({
           <form action={logoutAction}>
             <button className="button button-quiet" type="submit">Keluar</button>
           </form>
-          <p className="sidebar-credit">
-            &copy; 2026 Dimas Bratakusumah &middot; Institut Teknologi Nasional Bandung
-          </p>
         </div>
       </aside>
 
@@ -267,9 +264,6 @@ export function ResponsiveShell({
           <form action={logoutAction}>
             <button className="button button-quiet" type="submit">Keluar</button>
           </form>
-          <p className="sidebar-credit">
-            &copy; 2026 Dimas Bratakusumah &middot; Institut Teknologi Nasional Bandung
-          </p>
         </div>
       </aside>
 

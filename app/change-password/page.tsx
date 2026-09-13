@@ -91,7 +91,6 @@ export default async function ChangePasswordPage({ searchParams }: ChangePasswor
         </div>
         <div>Jalan Tanjungkerta No. 34 Cimalaka, Kabupaten Sumedang</div>
         <div>&copy; {new Date().getFullYear()} SMAN 2 Cimalaka. Hak cipta dilindungi.</div>
-        <div className="auth-attribution-author">&copy; 2026 Dimas Bratakusumah &middot; Institut Teknologi Nasional Bandung</div>
       </footer>
     </main>
   );

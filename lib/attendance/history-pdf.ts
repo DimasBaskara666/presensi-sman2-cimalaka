@@ -193,7 +193,7 @@ export async function generateAttendanceHistoryPdf(
       doc.switchToPage(index);
       doc.fillColor("#60706a").font("Helvetica").fontSize(7)
         .text(
-          `Sistem Presensi Sekolah | Halaman ${index - range.start + 1} dari ${range.count} | Presensi SMAN 2 Cimalaka · © 2026 Dimas Bratakusumah`,
+          `Sistem Presensi Sekolah | Halaman ${index - range.start + 1} dari ${range.count}`,
           MARGIN,
           doc.page.height - MARGIN - 12,
           { width: doc.page.width - MARGIN * 2, align: "center", lineBreak: false },
