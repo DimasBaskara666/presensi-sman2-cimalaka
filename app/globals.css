@@ -4045,6 +4045,12 @@ summary:focus-visible {
   min-width: 0;
 }
 
+.corrections-record-list,
+.corrections-workspace .history-record-list {
+  display: grid !important;
+  gap: 0.875rem;
+}
+
 .history-record-card.is-selected {
   border-color: var(--color-primary, #0284c7);
   background: rgba(224, 242, 254, 0.35);

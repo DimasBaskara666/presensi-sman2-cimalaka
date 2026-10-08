@@ -167,7 +167,7 @@ export default async function AttendanceCorrectionsPage({ searchParams }: Attend
               </div>
 
               {view.rows.length ? (
-                <div className="history-record-list">
+                <div className="corrections-record-list">
                   {view.rows.map((row) => {
                     const isRowSelected = row.id === recordId;
                     return (
